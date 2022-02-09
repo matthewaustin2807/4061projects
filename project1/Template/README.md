@@ -2,7 +2,7 @@ This program is essentially a basic map-reduce program which creates multiple pr
 
 Team Member Names and x500:
 - Matthew Chandra (chand703)
-- 
+- Muhammad Arfan Maulana (maula006)
 
 Contribution by each member:
 - Both of us did further research on how fork-wait-exec system calls work as it was still unclear for us. After gaining knowledge on the syscalls, we separated the task to the following: Matthew did the part where mappers are spawned, while Arfan did the part where reducers are spawned.
