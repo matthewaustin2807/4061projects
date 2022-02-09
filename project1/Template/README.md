@@ -1,7 +1,7 @@
-test machine: csel-kh1250-31
-date: 02/09/2022
-name: Matthew A. Chandra, Muhammad Arfan Maulana
-x500: chand703, maula006
+- test machine: csel-kh1250-31
+- date: 02/09/2022
+- name: Matthew A. Chandra, Muhammad Arfan Maulana
+- x500: chand703, maula006
 
 This program is essentially a basic map-reduce program which creates multiple processes on the same machine through fork-wait-exec sequences. To compile this program, simply type in `make` in the directory where the Makefile exists. Once everything is compiled, run the mapreduce program by typing the following: `./mapreduce #mappers #reducers filename` in the command line. However, currently this program is not yet complete since it is still created for the intermediate submission. Therefore currently, only the **mapreduce.c** is completed. This **mapreduce.c** file will spawn mappers and reducers according to the number supplied by the user. We know that it is currently working as we know each child process manages to call the mapper and reducer executables judging by the fact that print statements from mapper and reducer gets outputted to the command line.
 
