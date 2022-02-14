@@ -80,8 +80,12 @@ void writeFinalDS(int reducerID){
 	char toPut[MAXKEYSZ];
 
 	finalKeyValueDS nodeFDS = createdFDS;
+
+	//Created file to insert reduced data.	
 	FILE *reducedFile;
 	reducedFile = fopen("output/ReduceOut/Reduce_reducer%d", reducerID, "w");
+	
+	//Writing lines one by one.
 	while(FDSnode != null){
 		toPut = nodeFDS -> key;
 		strcat(toPut, " ");
@@ -89,6 +93,7 @@ void writeFinalDS(int reducerID){
 		strcat(toPut, "\n");
 		fputs(toPut, reducedFile);
 	}
+	
 	//DS iterated through successfully. Now free.
 	freeFinalDS(createdFDS);
 	fclose(reducedFile;)
