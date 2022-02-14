@@ -123,19 +123,19 @@ void writeIntermediateDS() {
 	tempIDSnode = createdIDS;
 	while(tempIDSnode != NULL){ //traverse through IDS
 		char *newKey = tempIDSnode -> key; 
-		FILE *newFile; //Create new txt file to write the word and its instances.
-		newFile = fopen("%s/%s.txt", mapOutDir, newKey, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
-		fprintf(newFile, "%s", newKey); //Write word into file.
+		FILE *mapFile; //Create new txt file to write the word and its instances.
+		mapFile = fopen("%s/%s.txt", mapOutDir, newKey, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		fprintf(mapFile, "%s", newKey); //Write word into file.
 		valueList* tempValNode = tempIDSnode -> value; //get IDSnode's valueList.
 		while (tempValNode != NULL){ //traverse through current IDS Node's valuelist.
-			fprintf(newFile, " %s", tempValNode -> value); //Write down all "valueList" nodes.
+			fprintf(mapFile, " %s", tempValNode -> value); //Write down all "valueList" nodes.
 			tempValNode = tempValNode -> next;
 		}
 		tempIDSnode = tempIDSnode -> next; //Go to next word.
 	}
 	//DS iterated through successfully. Now free.
 	freeInterDS(createdIDS);
-	fclose(newFile);
+	fclose(mapFile);
 	
 }
 
