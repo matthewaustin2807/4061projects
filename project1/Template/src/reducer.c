@@ -83,7 +83,7 @@ void writeFinalDS(int reducerID){
 
 	//Created file to insert reduced data.	
 	FILE *reducedFile;
-	reducedFile = fopen("output/ReduceOut/Reduce_reducer%d", reducerID, "w");
+	reducedFile = fopen("output/ReduceOut/Reduce_reducer%d.txt", reducerID, "w");
 	
 	//Writing lines one by one.
 	while(FDSnode != null){
