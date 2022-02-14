@@ -114,7 +114,7 @@ void map(char *chunkData){
 void writeIntermediateDS() {
 	//Note:
 	//Wait so... there already exists an intermediateDS somewhere? Main has access to it somehow.
-	//I created "createdDS" as the static DS.
+	//I created "createdDS" as the static DS anyway
 	//Do a for each of sorts that iterates through all words in "createdDS" to fork. 
 	//Create new files for each.
 	//Fork unnecessary?
@@ -124,7 +124,7 @@ void writeIntermediateDS() {
 	while(tempIDSnode != NULL){ //traverse through IDS
 		char *newKey = tempIDSnode -> key; 
 		FILE *newFile; //Create new txt file to write the word and its instances.
-		newFile = fopen("../output/MapOut/Map_%d/%s.txt", mapperID, newKey, w); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		newFile = fopen("%s/%s.txt", mapOutDir, newKey); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
 		fprintf(newFile, "%s", newKey); //Write word into file.
 		valueList* tempValNode = tempIDSnode -> value; //get IDSnode's valueList.
 		while (tempValNode != NULL){ //traverse through current IDS Node's valuelist.
