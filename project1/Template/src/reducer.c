@@ -90,7 +90,8 @@ void writeFinalDS(int reducerID){
 		fputs(toPut, reducedFile);
 	}
 	//DS iterated through successfully. Now free.
-	freeFinalDS(createdFDS)
+	freeFinalDS(createdFDS);
+	fclose(reducedFile;)
 
 }
 
