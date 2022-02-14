@@ -80,14 +80,14 @@ void freeInterDS(intermediateDS *root) {
 //------------------------------------------------------------------
 
 //STATIC Intermediate Data Structure
-static intermediateDS* createdDS;
+static intermediateDS* createdIDS;
 
 // emit the <key, value> into intermediate DS 
 void emit(char *key, char *value) {
 
 	//Is it this simple???
 	//the function will already check if a key exists.
-	createdDS = insertPairToInterDS(createdDS, key, value)
+	createdIDS = insertPairToInterDS(createdIDS, key, value)
 
 }
 
@@ -114,13 +114,13 @@ void map(char *chunkData){
 void writeIntermediateDS() {
 	//Note:
 	//Wait so... there already exists an intermediateDS somewhere? Main has access to it somehow.
-	//I created "createdDS" as the static DS anyway
-	//Do a for each of sorts that iterates through all words in "createdDS" to fork. 
+	//I created "createdIDS" as the static DS anyway
+	//Do a for each of sorts that iterates through all words in "createdIDS" to fork. 
 	//Create new files for each.
 	//Fork unnecessary?
 	//Free the DS after it all!
 	intermediateDS *tempIDSnode;
-	tempIDSnode = createdDS;
+	tempIDSnode = createdIDS;
 	while(tempIDSnode != NULL){ //traverse through IDS
 		char *newKey = tempIDSnode -> key; 
 		FILE *newFile; //Create new txt file to write the word and its instances.
@@ -133,8 +133,8 @@ void writeIntermediateDS() {
 		}
 		tempIDSnode = tempIDSnode -> next; //Go to next word.
 	}
-	//DS iterated through.
-	freeInterDS(createdDS);
+	//DS iterated through successfully. Now free.
+	freeInterDS(createdIDS);
 	
 	
 	
