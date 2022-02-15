@@ -93,46 +93,48 @@ void emit(char *key, char *value) {
 
 // map function
 void map(char *chunkData){
-	//Create new intermediate Data Structure (DS) to store the word and its count (valueList; managed automatically)
-	//Will be initialized later in the while loop (insert new node!)
-	//note: DO NOT USE CREATE! Insert will do it for you!
+
 	// you can use getWord to retrieve words from the 
 	// chunkData one by one. Example usage in utils.h
+	
 	int i = 0;
 	char *buffer;
-	while ((buffer = getWord(chunkData, &i)) != NULL){
-		//Add value to intermediate data structure (intermediateDS)
-		emit(buffer, 1);
-		//That's it.
+	while ((buffer = getWord(chunkData, &i)) != NULL){ //get next word in the file.
+		//Add word to intermediate data structure (intermediateDS)
+		emit(buffer, 1); //(note: as far as I know, the value passed is always 1. insertPairToInterDS automatically adds new 1 to list.)
+
 	}
-	//Done. No need to do anything else! main will call 
+	//Done. No need to do anything else.
 	
 }
 
 // write intermediate data to separate word.txt files
 // Each file will have only one line : word 1 1 1 1 1 ...
 void writeIntermediateDS() {
-	//Note:
-	//Wait so... there already exists an intermediateDS somewhere? Main has access to it somehow.
-	//I created "createdIDS" as the static DS anyway
-	//Do a for each of sorts that iterates through all words in "createdIDS" to fork. 
-	//Create new files for each.
-	//Fork unnecessary?
-	//Free the DS after it all!
+
 	intermediateDS *tempIDSnode;
 	tempIDSnode = createdIDS;
-	while(tempIDSnode != NULL){ //traverse through IDS
-		char *newKey = tempIDSnode -> key; 
+	
+	//traverse through IDS and create new text files with the word and its counts (as raw 1's)
+	while(tempIDSnode != NULL){ 
+		
+		//Open a new file for this word.
 		FILE *mapFile; //Create new txt file to write the word and its instances.
 		mapFile = fopen("%s/%s.txt", mapOutDir, newKey, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		
+		//Insert the word (key) and its count (value) into file.
+		char *newKey = tempIDSnode -> key; 
 		fprintf(mapFile, "%s", newKey); //Write word into file.
 		valueList* tempValNode = tempIDSnode -> value; //get IDSnode's valueList.
-		while (tempValNode != NULL){ //traverse through current IDS Node's valuelist.
-			fprintf(mapFile, " %s", tempValNode -> value); //Write down all "valueList" nodes.
+		while (tempValNode != NULL){ //Write down all "valueList" nodes (count).
+			fprintf(mapFile, " %s", tempValNode -> value); 
 			tempValNode = tempValNode -> next;
 		}
-		tempIDSnode = tempIDSnode -> next; //Go to next word.
+		 
+		//Go to next word.
+		tempIDSnode = tempIDSnode -> next;
 	}
+
 	//DS iterated through successfully. Now free.
 	freeInterDS(createdIDS);
 	fclose(mapFile);
