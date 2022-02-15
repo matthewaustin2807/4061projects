@@ -75,23 +75,75 @@ void freeInterDS(intermediateDS *root) {
 	}
 }
 
+//------------------------------------------------------------------
+//------------------WORK STARTS HERE--------------------------------
+//------------------------------------------------------------------
+
+//STATIC Intermediate Data Structure
+static intermediateDS* createdIDS;
+
 // emit the <key, value> into intermediate DS 
 void emit(char *key, char *value) {
+
+	//Is it this simple???
+	//the function will already check if a key exists.
+	createdIDS = insertPairToInterDS(createdIDS, key, value)
 
 }
 
 // map function
 void map(char *chunkData){
-	
+
 	// you can use getWord to retrieve words from the 
 	// chunkData one by one. Example usage in utils.h
+	
+	int i = 0;
+	char *buffer;
+	while ((buffer = getWord(chunkData, &i)) != NULL){ //get next word in the file.
+		//Add word to intermediate data structure (intermediateDS)
+		emit(buffer, 1); //(note: as far as I know, the value passed is always 1. insertPairToInterDS automatically adds new 1 to list.)
+
+	}
+	//Done. No need to do anything else.
+	
 }
 
 // write intermediate data to separate word.txt files
 // Each file will have only one line : word 1 1 1 1 1 ...
 void writeIntermediateDS() {
+
+	intermediateDS *tempIDSnode;
+	tempIDSnode = createdIDS;
+	
+	//traverse through IDS and create new text files with the word and its counts (as raw 1's)
+	while(tempIDSnode != NULL){ 
+		
+		//Open a new file for this word.
+		FILE *mapFile; //Create new txt file to write the word and its instances.
+		mapFile = fopen("%s/%s.txt", mapOutDir, newKey, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		
+		//Insert the word (key) and its count (value) into file.
+		char *newKey = tempIDSnode -> key; 
+		fprintf(mapFile, "%s", newKey); //Write word into file.
+		valueList* tempValNode = tempIDSnode -> value; //get IDSnode's valueList.
+		while (tempValNode != NULL){ //Write down all "valueList" nodes (count).
+			fprintf(mapFile, " %s", tempValNode -> value); 
+			tempValNode = tempValNode -> next;
+		}
+		 
+		//Go to next word.
+		tempIDSnode = tempIDSnode -> next;
+	}
+
+	//DS iterated through successfully. Now free.
+	freeInterDS(createdIDS);
+	fclose(mapFile);
 	
 }
+
+//------------------------------------------------------------------
+//------------------WORK ENDS HERE----------------------------------
+//------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
 	
