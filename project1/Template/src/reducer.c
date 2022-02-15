@@ -41,16 +41,68 @@ void freeFinalDS(finalKeyValueDS *root) {
 	}
 }
 
-// reduce function
-void reduce(char *key) {
+//------------------------------------------------------------------
+//------------------WORK STARTS HERE--------------------------------
+//------------------------------------------------------------------
 
+//STATIC final intermediateDS
+static finalKeyValueDS createdFDS;
+
+// reduce function
+// Processes one word at a time.
+void reduce(char *key) {
+	char buffer[MAXKEYSZ];
+	char word[MAXKEYSZ]
+	int counter = 0;
+
+	//open the map file. "key" is the raw path to the file. 
+	FILE* toReduce;
+	toReduce = fopen(key, "r"); //open map file.
+
+	//Get word from file.
+	buffer = fscanf(toReduce, "%s", buf); 
+	strcpy(word, buffer); 
+
+	//Count instances of word.
+	while ( fscanf(toReduce, "%s", buf) != EOF ) counter++;  //counts how many "1s" (instances) there are in the map.
+
+	//Insert word/counter into the data structure.
+	createdFDS = insertNewKeyValue(createdFDS, &word, counter);
+
+	//Close file.
+	fclose(toReduce);
+	
 }
 
 // write the contents of the final intermediate structure
 // to output/ReduceOut/Reduce_reducerID.txt
 void writeFinalDS(int reducerID){
+	char toPut[MAXKEYSZ];
+
+	finalKeyValueDS nodeFDS = createdFDS;
+
+	//Created file to insert reduced data.	
+	FILE *reducedFile;
+	reducedFile = fopen("output/ReduceOut/Reduce_reducer%d.txt", reducerID, "w");
 	
+	//Writing lines one by one.
+	while(FDSnode != null){
+		toPut = nodeFDS -> key;
+		strcat(toPut, " ");
+		strcat(toPut, nodeFDS -> value);
+		strcat(toPut, "\n");
+		fputs(toPut, reducedFile);
+	}
+	
+	//DS iterated through successfully. Now free.
+	freeFinalDS(createdFDS);
+	fclose(reducedFile;)
+
 }
+
+//------------------------------------------------------------------
+//------------------WORK ENDS HERE----------------------------------
+//------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
 
