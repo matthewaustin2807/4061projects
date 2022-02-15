@@ -87,7 +87,7 @@ void emit(char *key, char *value) {
 
 	//Is it this simple???
 	//the function will already check if a key exists.
-	createdIDS = insertPairToInterDS(createdIDS, key, value)
+	createdIDS = insertPairToInterDS(createdIDS, key, value);
 
 }
 
@@ -101,7 +101,7 @@ void map(char *chunkData){
 	char *buffer;
 	while ((buffer = getWord(chunkData, &i)) != NULL){ //get next word in the file.
 		//Add word to intermediate data structure (intermediateDS)
-		emit(buffer, 1); //(note: as far as I know, the value passed is always 1. insertPairToInterDS automatically adds new 1 to list.)
+		emit(buffer, "1"); //(note: as far as I know, the value passed is always 1. insertPairToInterDS automatically adds new 1 to list.)
 
 	}
 	//Done. No need to do anything else.
@@ -117,13 +117,15 @@ void writeIntermediateDS() {
 	
 	//traverse through IDS and create new text files with the word and its counts (as raw 1's)
 	while(tempIDSnode != NULL){ 
-		
+		char *newKey = tempIDSnode -> key; 
 		//Open a new file for this word.
 		FILE *mapFile; //Create new txt file to write the word and its instances.
-		mapFile = fopen("%s/%s.txt", mapOutDir, newKey, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		char filename[128];
+		sprintf(filename, "%s/%s.txt", mapOutDir, newKey);
+		mapFile = fopen(filename, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
 		
 		//Insert the word (key) and its count (value) into file.
-		char *newKey = tempIDSnode -> key; 
+	
 		fprintf(mapFile, "%s", newKey); //Write word into file.
 		valueList* tempValNode = tempIDSnode -> value; //get IDSnode's valueList.
 		while (tempValNode != NULL){ //Write down all "valueList" nodes (count).
@@ -133,11 +135,12 @@ void writeIntermediateDS() {
 		 
 		//Go to next word.
 		tempIDSnode = tempIDSnode -> next;
+		fclose(mapFile);
 	}
 
 	//DS iterated through successfully. Now free.
 	freeInterDS(createdIDS);
-	fclose(mapFile);
+	
 	
 }
 
