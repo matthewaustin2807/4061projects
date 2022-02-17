@@ -23,6 +23,7 @@ int main(int argc, char *argv[]) {
 	// ###### DO NOT REMOVE ######
 	bookeepingCode();
 
+	//handles if file doesnt exist of can't be opened
 	int fileStatus = open(inputFile, O_RDONLY);
 	if (fileStatus == -1){
 		printf("File doesn't exist\n");
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
 	}
 	sleep(1);
 
-
+	//handle if nMappers < nReducers
 	if (nMappers < nReducers){
 		printf("Number of mappers should be greater than or equal to the number of reducers\n");
 		exit(0);
@@ -51,15 +52,18 @@ int main(int argc, char *argv[]) {
 		char mapID[5];
 		sprintf(mapID, "%d", i+1);
 		pid_t childpid = fork();
+		//throw error if fork fails
 		if (childpid == -1){
 			perror("Failed to fork\n");
 			return 1;
 		}
+		//child
 		else if (childpid == 0){
 			execlp("./mapper", "./mapper", mapID,  NULL);
 			printf("Error executing\n");
 			exit(0);
 		}
+		//parent
 		else{
 			pidArrayMappers[i] = childpid;
 		}
@@ -89,14 +93,17 @@ int main(int argc, char *argv[]) {
 		char mapID[5];
 		sprintf(mapID, "%d", i+1);
 		pid_t childpid = fork();
+		//throw error if fork fails
 		if (childpid == -1){
 			perror("Fork creation failed\n");
 			return 1;
 		}
+		//child 
 		else if (childpid == 0){
 			execlp("./reducer", "./reducer", mapID,  NULL);
 			exit(0);
 		}
+		//parent
 		else {
 			pidArrayReducers[i] = childpid;
 		}
