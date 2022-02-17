@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 	mapperID = strtol(argv[1], NULL, 10);
 
     //Print statement for mapper, comment this for final submission
-    printf("Mapper id : %d \n",mapperID);
+    // printf("Mapper id : %d \n",mapperID);
 
 	// ###### DO NOT REMOVE ######
 	// create folder specifically for this mapper in output/MapOut

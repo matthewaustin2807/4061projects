@@ -23,6 +23,12 @@ int main(int argc, char *argv[]) {
 	// ###### DO NOT REMOVE ######
 	bookeepingCode();
 
+	int fileStatus = open(inputFile, O_RDONLY);
+	if (fileStatus == -1){
+		printf("File doesn't exist\n");
+		exit(0);
+	}
+
 	// ###### DO NOT REMOVE ######
 	pid_t pid = fork();
 	if(pid == 0){
@@ -31,6 +37,7 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 	sleep(1);
+
 
 	if (nMappers < nReducers){
 		printf("Number of mappers should be greater than or equal to the number of reducers\n");
@@ -49,7 +56,6 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		else if (childpid == 0){
-			printf("%d\n", getpid());
 			execlp("./mapper", "./mapper", mapID,  NULL);
 			printf("Error executing\n");
 			exit(0);
@@ -88,7 +94,6 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		else if (childpid == 0){
-			printf("%d\n", getpid());
 			execlp("./reducer", "./reducer", mapID,  NULL);
 			exit(0);
 		}

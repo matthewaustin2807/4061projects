@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
 	int reducerID = strtol(argv[1], NULL, 10);
 
     //Print statement for reducer, comment this for final submission
-    printf("Reducer id : %d \n",reducerID);
+    // printf("Reducer id : %d \n",reducerID);
 
 	// ###### DO NOT REMOVE ######
 	// master will continuously send the word.txt files
