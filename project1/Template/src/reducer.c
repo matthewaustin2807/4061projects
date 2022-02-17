@@ -58,6 +58,10 @@ void reduce(char *key) {
 	//open the map file. "key" is the raw path to the file. 
 	FILE* toReduce;
 	toReduce = fopen(key, "r"); //open map file.
+	if (toReduce == NULL){
+		printf("File can't be opened\n");
+		return;
+	}
 
 	//Get word from file.
 	fscanf(toReduce, "%s", buffer); 
@@ -84,9 +88,13 @@ void writeFinalDS(int reducerID){
 
 	//Created file to insert reduced data.	
 	char filename[128];
-	sprintf(filename, "output/ReduceOut/Reduce_reducer%d.txt", reducerID);
+	sprintf(filename, "output/ReduceOut/Reduce_%d.txt", reducerID);
 	FILE *reducedFile;
 	reducedFile = fopen(filename, "w");
+	if (reducedFile == NULL){
+		printf("File can't be opened\n");
+		return;
+	}
 	
 	//Writing lines one by one.
 	while(nodeFDS != NULL){

@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
 
 	// To do
 	// spawn mappers processes and run 'mapper' executable using exec
-	pid_t *pidArrayMappers = malloc(sizeof(pid_t) * nMappers);
+	pid_t *pidArrayMappers = malloc(sizeof(pid_t) * nMappers); //will store the pid of each child created so that it can be waited by the parent.
 	int status;
 	for (int i = 0; i < nMappers; i++){
 		char mapID[5];
@@ -50,7 +50,6 @@ int main(int argc, char *argv[]) {
 			execlp("./mapper", "./mapper", mapID,  NULL);
 			printf("Error executing\n");
 			exit(0);
-			// execlp("mapper", "mapper", mapID, NULL);
 		}
 		else{
 			pidArrayMappers[i] = childpid;
@@ -76,7 +75,7 @@ int main(int argc, char *argv[]) {
 
 	// To do
 	// spawn reducer processes and run 'reducer' executable using exec
-	pid_t *pidArrayReducers = malloc(sizeof(pid_t) * nReducers);
+	pid_t *pidArrayReducers = malloc(sizeof(pid_t) * nReducers); //store the pid of the children so it can be waited by the parent.
 	for (int i = 0; i < nReducers; i++){
 		char mapID[5];
 		sprintf(mapID, "%d", i+1);
@@ -100,6 +99,7 @@ int main(int argc, char *argv[]) {
 		waitpid(pidArrayReducers[i], &status, 0);
 	}
 
+	//free all of the arrays allocated to store the children pids.
 	free(pidArrayMappers);
 	free(pidArrayReducers);
 	return 0;
