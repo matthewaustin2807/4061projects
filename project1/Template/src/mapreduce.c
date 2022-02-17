@@ -32,7 +32,10 @@ int main(int argc, char *argv[]) {
 	}
 	sleep(1);
 
-
+	if (nMappers < nReducers){
+		printf("Number of mappers should be greater than or equal to the number of reducers\n");
+		exit(0);
+	}
 	// To do
 	// spawn mappers processes and run 'mapper' executable using exec
 	pid_t *pidArrayMappers = malloc(sizeof(pid_t) * nMappers); //will store the pid of each child created so that it can be waited by the parent.
