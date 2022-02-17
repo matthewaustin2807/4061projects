@@ -111,12 +111,16 @@ void writeIntermediateDS() {
 	//traverse through IDS and create new text files with the word and its counts (as raw 1's)
 	while(tempIDSnode != NULL){ 
 		char *newKey = tempIDSnode -> key; 
-		
+
 		//Open a new file for this word.
 		FILE *mapFile; //Create new txt file to write the word and its instances.
 		char filename[128];
 		sprintf(filename, "%s/%s.txt", mapOutDir, newKey);
 		mapFile = fopen(filename, "w"); //create new file in a folder output/MapOut and inside another folder labeled by Map_<mapperID> (defined mapper.h, so accessible)
+		if (mapFile == NULL){
+			printf("Failed to open file\n");
+			return;
+		}
 
 		//Insert the word (key) and its count (value) into file.
 		fprintf(mapFile, "%s", newKey); //Write word into file.
@@ -133,8 +137,6 @@ void writeIntermediateDS() {
 
 	//DS iterated through successfully. Now free.
 	freeInterDS(createdIDS);
-	
-	
 }
 
 //------------------------------------------------------------------
