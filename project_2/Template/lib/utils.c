@@ -13,7 +13,7 @@
 
 char *getChunkData(int mapperID) {
    //So what happens is that early in the program's execution, sendChunkData is called and creates a message queue which holds the data of ALL the chunks there 
-   // (after which, sendChunkData idles and waits for the queue to be fully used before closing it)
+   // (after which, sendChunkData idles and waits for the queue to be	 fully used before closing it)
    //When getChunkData is called, elements from this queue (i.e. the chunks) is retreived and sent to the whatever called it.
    //If some excessively large mapperID is getChunkData's argument (maybe #ofMappers + 1?), getChunkData will see an "END" message in the message queue!   
    //This function is used in mapper.c.
