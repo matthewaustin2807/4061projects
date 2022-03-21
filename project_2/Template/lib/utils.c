@@ -1,17 +1,65 @@
 #include "utils.h"
 
+//Message buffer struct:
+//long mtype
+//char mtext[1024]
+
+//key= 4061
+
+// "SIGNALING" MESSAGES
+//ACK = SOMETHING?
+//END = SOMETHING?
+
+
 char *getChunkData(int mapperID) {
-  //TODO open message queue
+   //So what happens is that early in the program's execution, sendChunkData is called and creates a message queue which holds the data of ALL the chunks there 
+   // (after which, sendChunkData idles and waits for the queue to be fully used before closing it)
+   //When getChunkData is called, elements from this queue (i.e. the chunks) is retreived and sent to the whatever called it.
+   //If some excessively large mapperID is getChunkData's argument (maybe #ofMappers + 1?), getChunkData will see an "END" message in the message queue!   
+   //This function is used in mapper.c.
+   //Mapper.c will call getChunkData from 1,2,...#ofmapperIDs.
+   //Eventually, mapper.c will call getChunkData(#ofmapperIDs + 1) (more mappers than those that exist), and when getChunkData tries to find a message in the message queue with this ID, it should find an END MESSAGE.
+   //When getChunkData sees this END MESSAGE, it will send an ACKNOLEDGEMENT MESSAGE to sendChunkData before returning NULL.
+   //When sendChunkData sees this ACKNOWLEDGE MESSAGE in the queue, it is the signal to that this mapper is done getting all its data...
+   //And when all mappers are done getting the data, the message queue will be closed.
+   //, and getChunkData replies with an acknowledgement of that message. 
    
+    int nReadByte = 0; //counter for # of bytes read (i.e. ensure all bytes of a message are read; no more, no less).
+    struct my_msgbuf buf; //Create a buffer to hold received data from message queue.
+  
+  //TODO open message queue
+   msqid = msgget(KEY, 0666); //We open the message queue to READ stuff from sendChunkData's message (it must already exist!)
+   
+   if(msqid == -1) {//check if opened?
+       perror("no available queue for now"); //DO SOMETHING ELSE?
+       return -1;
+   } else {
+
+       //TODO receive chunk from the master
+        nReadByte = msgrcv(msqid, &buf, sizeof(struct my_msgbuf), mapperID, 0); //From the same queue used in send, take a message with the type (identification) "MapperID".
+        if(nReadByte == -1) //failed. No message.
+        {
+            break;
+        } 
+        
+        //TODO check for END message and send ACK to master and return NULL. 
+        //Otherwise return pointer to the chunk data. 
+        //
+        if (0 == strcmp(buf.mtext, "^&*()") && buf.mtype == <INSERT ENDTYPE>){ //Check if an END message is received (You define this matt!)
+        	//Create an acknowledgement message (using buf, since its contents are not useful).
+        	//Acknowledg defined as: Type 6024752, Text = "!@#$%" (the text are all invalid chars for a word).
+        	buf.mtype = 6024752;
+        	buf.mtext = "!@#$%\0";                	
+        	msgsnd(key, buf, sizeof(my_msgbuf), 0); //Send it back to master (i.e. sendChunkData)
+        	return NULL;
+        } else {
+        	return buf.mtext;
+        }
+
+  }
+  
 
 
-  //TODO receive chunk from the master
-    
-
-
-  //TODO check for END message and send ACK to master and return NULL. 
-  //Otherwise return pointer to the chunk data. 
-  //
 }
 
 void sendChunkData(char *inputFile, int nMappers) {
