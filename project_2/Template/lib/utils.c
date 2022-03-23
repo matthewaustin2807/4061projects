@@ -1,5 +1,9 @@
 #include "utils.h"
 
+#define BUFSIZE 1024
+
+int key = 4061;
+
 //Message buffer struct:
 //long mtype
 //char mtext[1024]
@@ -45,6 +49,7 @@ char *getChunkData(int mapperID) {
    //sendChunkData() then reads this <ACK> message, which tells sendChunkData() that this "mini-queue" is finished being used.
    //
    //When sendChunkData() gets <ACK> messages from all the mini-queues (i.e. all the mtypes/mapperIDs), it then closes the entire message queue and ends.
+   //CHANGE: For the ACK and END, we will just use the 0xffffffff as the type. Using the mapper id is too diifficult to do in conjunction with messsage queues.
    
     int nReadByte = 0; //counter for # of bytes read (i.e. ensure all bytes of a message are read; no more, no less).
     struct my_msgbuf buf; //Create a buffer to hold received data from message queue.
@@ -59,7 +64,7 @@ char *getChunkData(int mapperID) {
 
        //TODO receive chunk from the master
         nReadByte = msgrcv(msqid, &buf, sizeof(struct my_msgbuf), mapperID, 0); //From the same queue used in send, take a message with the type (identification) "MapperID".
-        if(nReadByte == -1) //failed. No message.
+        if(nReadByte == -1) //failed to retreive message (error)
         {
             break;
         } 
@@ -67,15 +72,13 @@ char *getChunkData(int mapperID) {
         //TODO check for END message and send ACK to master and return NULL. 
         //Otherwise return pointer to the chunk data. 
         //
-        if (0 == strcmp(buf.mtext, <INSERT END MESSAGE) && buf.mtype == <INSERT END TYPE>){ //Check if an END message is received (You define this matt!)
-        	//Create an acknowledgement message (using buf, since its contents are not useful).
-        	//Acknowledg defined as: Type 6024752, Text = "!@#$%" (the text are all invalid chars for a word).
-        	buf.mtype = mapperID; //tell that the acknowledgement was for *this* mapper.
-        	buf.mtext = "?????\0";                	
+        if (0 == strcmp(buf.mtext, "!!!!!"){ //Check if an END message is received (End = "!!!!!")
+        	buf.mtype = 0xffffffff; //Send acknowledgement that an END message through a message of this special type.
+        	buf.mtext = "?????\0";//(acknowledge are all question marks, which isn't a valid word (i.e. special case).
         	msgsnd(key, buf, sizeof(my_msgbuf), 0); //Send it back to master (i.e. sendChunkData)
         	return NULL;//Returns NULL to indicate to Mapper that this queue is empty.
         } else {
-        	return buf.mtext; //send chunk.
+        	return buf.mtext; //send chunk for the mapper to store in the IntermediateDS
         }
 
   }
@@ -85,20 +88,86 @@ char *getChunkData(int mapperID) {
 }
 
 void sendChunkData(char *inputFile, int nMappers) {
-  //TODO open the message queue
+	struct msgBuffer msgbuf;
+	char curWord[100];
+	char buf[BUFSIZE];
 
+	//NEW: Current MapperID.
+	int curMapper = 1;
+
+	memset(curWord, '\0', 100);
+	memset(buf, '\0', BUFSIZE);
+
+	int fd = open(inputFile, O_RDONLY);
+  //TODO open the message queue
+	msqid = msgget(key, IPC_CREAT|0666);
+	if (msqid == -1){
+		perror("Fail to open or create the queue");
+		return 1;
+	}
 
   //TODO Construct chunks of at most 1024 bytes each and send each chunk to a mapper in a round
   // robin fashion. Read one word at a time(End of word could be  \n, space or ROF). If a chunk 
   // is less than 1024 bytes, concatennate the word to the buffer.   
-  
-
-
+  //Note: Round robin is like passing cards in a card game. for nMappers = 5 -> 1,2,3,4,5,1,2,3,4,5, etc.
+	while (getNextWord(fd, curWord) != 0){
+		if (strlen(buf) + strlen(curWord) > 1024){ //chunk filled up.
+			msgbuf.msgType = curMapper++; //The mapper to assign this chunk to (round-robin fashion, so increment to the next mapper for the next loop)
+			strcpy(msgbuf.msgText, buf);
+			msgbuf.msgText[strlen(buf)] = '\0';//top it off with 
+			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
+            {
+                perror("msgop: msgsnd failed");
+                break;
+            }
+			if(curMapper > nMappers){//Go back to the first mapper when all mappers passed a chunk in this iteration.
+				curMapper = 1;
+			}
+		} else { //chunk not full. Add to chunk!
+			strcat(buf, curWord); 
+			strcat(buf, ' ');
+		}
+	}
   //TODO inputFile read complete, send END message to mappers
-
+	for (int i = 0; i < nMappers; i++){
+		struct msgBuffer msgbuf;
+		msgbuf.msgType = i;//add an END to the ends of each of the mapper queues.
+		strcpy(msgbuf.msgText, "!!!!!");//Made the END message "!!!!!" since no word can have symbols.
+		msgbuf.msgText[strlen("!!!!!")] = '\0';//top the end message with a \0.
+		if (msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
+            {
+                perror("msgop: msgsnd failed");
+                break;
+            }
+	}
 
   //TODO wait to receive ACK from all mappers for END notification
+	//Simple behavior: From a special type (make in our case, maximum val of int), count how many ENDs were received.
+	int mapperCount = 0
+	while (mapperCount < nMappers){
+		int nReadByte;
+		nReadByte = msgrcv(msqid, &msgbuf, sizeof(struct msgBuffer), 0xffffffff, 0);//the 0xffffffff key is used for communication
+	 	if (nReadByte == -1){ //When does this happen?? Error?
+	 		break;
+	 	}
+		if (strcmp(msgbuf.mtext, "?????")){ //Ack message received (Ack = "?????")
+			mapperCount += 1;
+		}
 
+	}
+	//Matt's code: 
+	// int i = 0;
+	// while (i < nMappers){
+	// 	int nReadByte;
+	// 	nReadByte = msgrcv(msqid, &msgbuf, sizeof(struct msgBuffer), 1, 0);
+
+	// 	// msgbuf.mtext[nReadByte] = '\0'; //not necessary, since we already top all sent messages with \0?
+	// 	if (strcmp(msgbuf.mtext, "ACK") == 0){
+	// 		i++;
+	// 	}
+	// }
+
+	msgctl(msqid, IPC_RMID, NULL); //close message queue.
 }
 
 // hash function to divide the list of word.txt files across reducers
