@@ -101,7 +101,7 @@ void sendChunkData(char *inputFile, int nMappers) {
 		if (strlen(buf) + strlen(curWord) > 1024){ //chunk filled up.
 			msgbuf.msgType = curMapper++; //The mapper to assign this chunk to (round-robin fashion, so increment to the next mapper for the next loop)
 			strcpy(msgbuf.msgText, buf);
-			msgbuf.msgText[strlen(buf)] = '\0';//top it off with 
+			msgbuf.msgText[strlen(buf)] = '\0';//top it off with null terminator.
 			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
             {
                 perror("msgop: msgsnd failed");
@@ -116,10 +116,10 @@ void sendChunkData(char *inputFile, int nMappers) {
 		}
 	}
   //TODO inputFile read complete, send END message to mappers
-	for (int i = 0; i < nMappers; i++){
+	for (int i = 1; i <= nMappers; i++){
 		struct msgBuffer msgbuf;
 		msgbuf.msgType = i;//add an END to the ends of each of the mapper queues.
-		strcpy(msgbuf.msgText, "!!!!!");//Made the END message "!!!!!" since no word can have symbols.
+		strcpy(msgbuf.msgText, "!!!!!");//(End = "!!!!!")
 		msgbuf.msgText[strlen("!!!!!")] = '\0';//top the end message with a \0.
 		if (msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
             {
@@ -148,7 +148,7 @@ void sendChunkData(char *inputFile, int nMappers) {
 	// 	int nReadByte;
 	// 	nReadByte = msgrcv(msqid, &msgbuf, sizeof(struct msgBuffer), 1, 0);
 
-	// 	// msgbuf.mtext[nReadByte] = '\0'; //not necessary, since we already top all sent messages with \0?
+	// 	// msgbuf.mtext[nReadByte] = '\0'; //not necessary, since we already top all sent messages with \0? (TA Told me)
 	// 	if (strcmp(msgbuf.mtext, "ACK") == 0){
 	// 		i++;
 	// 	}
