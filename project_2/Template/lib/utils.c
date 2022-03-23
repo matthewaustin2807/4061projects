@@ -4,17 +4,6 @@
 
 int key = 4061;
 
-//Message buffer struct:
-//long mtype
-//char mtext[1024]
-
-//key= 4061
-
-// "SIGNALING" MESSAGES
-//ACK = SOMETHING?
-//END = SOMETHING?
-
-
 char *getChunkData(int mapperID) {
    //So what happens is that early in the program's execution, sendChunkData is called. In our scenario, sendChunkData acts as the "MASTER" phase.
    //
@@ -44,12 +33,12 @@ char *getChunkData(int mapperID) {
    //Each of these mapper processes will continuously call getChunkData() over and over with the argument being the mapper's ID (see line 205 of mapper.c).
    //As getChunkData() is called over and over by this mapper, the chunks of the mapper's "mini-queue" will eventually deplete.
    //This is indicated when getChunkData() reads an <END> instead of a chunk with this mapperID as its argument!.
-   //At this point, getChunkData() will return to the mapper a NULL (telling the mapper that it's now empty),
-   //and then getChunkData() writes into the "mini-queue" an <ACK> message (the mtype being the same as the current mapperID).
-   //sendChunkData() then reads this <ACK> message, which tells sendChunkData() that this "mini-queue" is finished being used.
    //
-   //When sendChunkData() gets <ACK> messages from all the mini-queues (i.e. all the mtypes/mapperIDs), it then closes the entire message queue and ends.
-   //CHANGE: For the ACK and END, we will just use the 0xffffffff as the type. Using the mapper id is too diifficult to do in conjunction with messsage queues.
+   //At this point of an <END>, getChunkData() will return to the mapper a NULL (telling the mapper that it's now empty),
+   //and then getChunkData() writes into the "mini-queue" an <ACK> message (the mtype being 0xffffffff, which we reserve for communication).
+   //sendChunkData() then reads this <ACK> message, which tells sendChunkData() that one of the "mini-queues" is finished being used.
+   //
+   //When sendChunkData() gets as many <ACK> messages as nMappers, it then closes the entire message queue and ends.
    
     int nReadByte = 0; //counter for # of bytes read (i.e. ensure all bytes of a message are read; no more, no less).
     struct my_msgbuf buf; //Create a buffer to hold received data from message queue.
@@ -74,7 +63,7 @@ char *getChunkData(int mapperID) {
         //
         if (0 == strcmp(buf.mtext, "!!!!!"){ //Check if an END message is received (End = "!!!!!")
         	buf.mtype = 0xffffffff; //Send acknowledgement that an END message through a message of this special type.
-        	buf.mtext = "?????\0";//(acknowledge are all question marks, which isn't a valid word (i.e. special case).
+        	buf.mtext = "?????\0";//(Ack = "?????").
         	msgsnd(key, buf, sizeof(my_msgbuf), 0); //Send it back to master (i.e. sendChunkData)
         	return NULL;//Returns NULL to indicate to Mapper that this queue is empty.
         } else {
@@ -82,8 +71,6 @@ char *getChunkData(int mapperID) {
         }
 
   }
-  
-
 
 }
 
