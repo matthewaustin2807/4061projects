@@ -12,17 +12,39 @@
 
 
 char *getChunkData(int mapperID) {
-   //So what happens is that early in the program's execution, sendChunkData is called and creates a message queue which holds the data of ALL the chunks there 
-   // (after which, sendChunkData idles and waits for the queue to be	 fully used before closing it)
-   //When getChunkData is called, elements from this queue (i.e. the chunks) is retreived and sent to the whatever called it.
-   //If some excessively large mapperID is getChunkData's argument (maybe #ofMappers + 1?), getChunkData will see an "END" message in the message queue!   
-   //This function is used in mapper.c.
-   //Mapper.c will call getChunkData from 1,2,...#ofmapperIDs.
-   //Eventually, mapper.c will call getChunkData(#ofmapperIDs + 1) (more mappers than those that exist), and when getChunkData tries to find a message in the message queue with this ID, it should find an END MESSAGE.
-   //When getChunkData sees this END MESSAGE, it will send an ACKNOLEDGEMENT MESSAGE to sendChunkData before returning NULL.
-   //When sendChunkData sees this ACKNOWLEDGE MESSAGE in the queue, it is the signal to that this mapper is done getting all its data...
-   //And when all mappers are done getting the data, the message queue will be closed.
-   //, and getChunkData replies with an acknowledgement of that message. 
+   //So what happens is that early in the program's execution, sendChunkData is called. In our scenario, sendChunkData acts as the "MASTER" phase.
+   //
+   //It then creates a brand new message queue.
+   //The message queue is made up of a bunch of what I'd call "mini-queues", each identified by an "mtype" which corresponds to a mapperID.
+   //(The mapperID is basically a unique identification based on the number of mappers the user wants to use.)
+   //The "mini-queues" of each mtype contain chunks of data assigned to that mapperID proceeded by a special <END> message.
+   //The number of chunks depends on the size of the data.
+   //
+   //So let's say we have an input file with 12,288 characters, and the user wants 4 mappers to calculate this.
+   //So each mapper will be assigned 3072 chars.
+   //Since a chunk can only be 1024 large, the mapper will further split their assigned parts further into 3 separate chunks 
+   //So now the entire queue looks kinda like this: 
+   //	message queue = 
+   //	{
+   //		mtype=1 -> "chunk - chunk - chunk - <END>"
+   //		mtype=2 -> "chunk - chunk - chunk - <END>"
+   //		mtype=3 -> "chunk - chunk - chunk - <END>"
+   //		mtype=4 -> "chunk - chunk - chunk - <END>"
+   //	}
+   //(this is not a perfect representation. In cases when the data is not evenly split, some chunks can have smaller than 1024 sizes. Also when words can overlap.)
+   //
+   // Once sendChunkData finishes making the message queue, it idles and waits...
+   //
+   //Later in the program's execution, a number of "mapper" processes will be created, each with a unique mapperID. This indicates the "MAP" phase.
+   //Expectedly, these mappers correspond to a "mini-queue", which both share an identical mapperID and mtype!
+   //Each of these mapper processes will continuously call getChunkData() over and over with the argument being the mapper's ID (see line 205 of mapper.c).
+   //As getChunkData() is called over and over by this mapper, the chunks of the mapper's "mini-queue" will eventually deplete.
+   //This is indicated when getChunkData() reads an <END> instead of a chunk with this mapperID as its argument!.
+   //At this point, getChunkData() will return to the mapper a NULL (telling the mapper that it's now empty),
+   //and then getChunkData() writes into the "mini-queue" an <ACK> message (the mtype being the same as the current mapperID).
+   //sendChunkData() then reads this <ACK> message, which tells sendChunkData() that this "mini-queue" is finished being used.
+   //
+   //When sendChunkData() gets <ACK> messages from all the mini-queues (i.e. all the mtypes/mapperIDs), it then closes the entire message queue and ends.
    
     int nReadByte = 0; //counter for # of bytes read (i.e. ensure all bytes of a message are read; no more, no less).
     struct my_msgbuf buf; //Create a buffer to hold received data from message queue.
@@ -45,15 +67,15 @@ char *getChunkData(int mapperID) {
         //TODO check for END message and send ACK to master and return NULL. 
         //Otherwise return pointer to the chunk data. 
         //
-        if (0 == strcmp(buf.mtext, "^&*()") && buf.mtype == <INSERT ENDTYPE>){ //Check if an END message is received (You define this matt!)
+        if (0 == strcmp(buf.mtext, <INSERT END MESSAGE) && buf.mtype == <INSERT END TYPE>){ //Check if an END message is received (You define this matt!)
         	//Create an acknowledgement message (using buf, since its contents are not useful).
         	//Acknowledg defined as: Type 6024752, Text = "!@#$%" (the text are all invalid chars for a word).
-        	buf.mtype = 6024752;
-        	buf.mtext = "!@#$%\0";                	
+        	buf.mtype = mapperID; //tell that the acknowledgement was for *this* mapper.
+        	buf.mtext = "?????\0";                	
         	msgsnd(key, buf, sizeof(my_msgbuf), 0); //Send it back to master (i.e. sendChunkData)
-        	return NULL;
+        	return NULL;//Returns NULL to indicate to Mapper that this queue is empty.
         } else {
-        	return buf.mtext;
+        	return buf.mtext; //send chunk.
         }
 
   }
