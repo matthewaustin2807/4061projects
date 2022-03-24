@@ -102,7 +102,18 @@ void sendChunkData(char *inputFile, int nMappers) {
   // robin fashion. Read one word at a time(End of word could be  \n, space or ROF). If a chunk 
   // is less than 1024 bytes, concatennate the word to the buffer.   
   //Note: Round robin is like passing cards in a card game. for nMappers = 5 -> 1,2,3,4,5,1,2,3,4,5, etc.
-	while (getNextWord(fd, curWord) != 0){// Something wrong here... getNextWord doesn't exist!
+	//His code doesn't use getWord... we will rewrite it to use getWord. 
+	//Where did he find getNextWord??
+	//Pseudocode:
+	//	Get a 1024 chunk from the file (use matt's code for this)
+	//	Send it to getWord to filter invalid words.
+	//	Send it to the msgqueue
+	//How does getWord work?
+	// One argument passes a chunk, i is just a counter we can use for something...
+	// But why does getWord ask for a chunk? Wouldn't it make sense to send it a file?
+	//Outof time. Will fix this later.
+	//INCOMPLETE SECTION: 
+	while (getNextWord(fd, &curWord) != 0){// Something wrong here... getNextWord doesn't exist!
 		if (strlen(buf) + strlen(curWord) > 1024){ //chunk filled up.
 			msgbuf.msgType = curMapper++; //The mapper to assign this chunk to (round-robin fashion, so increment to the next mapper for the next loop)
 			strcpy(msgbuf.msgText, buf);
@@ -120,6 +131,7 @@ void sendChunkData(char *inputFile, int nMappers) {
 			strcat(buf, " ");
 		}
 	}
+
   //TODO inputFile read complete, send END message to mappers
 	for (int i = 1; i <= nMappers; i++){
 		struct msgBuffer msgbuf;
