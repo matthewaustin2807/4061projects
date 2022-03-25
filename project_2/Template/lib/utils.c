@@ -90,7 +90,8 @@ void sendChunkData(char *inputFile, int nMappers) {
 	memset(curWord, '\0', 100);
 	memset(buf, '\0', BUFSIZE);
 
-	int fd = open(inputFile, O_RDONLY);
+	FILE* fd = fopen(inputFile, "r");
+	// int fd = open(inputFile, O_RDONLY);
   //TODO open the message queue
 	msqid = msgget(key, IPC_CREAT|0666);
 	if (msqid == -1){
@@ -113,36 +114,36 @@ void sendChunkData(char *inputFile, int nMappers) {
 	// But why does getWord ask for a chunk? Wouldn't it make sense to send it a file?
 	int i = 0; //current position (i because getWord's arg is i)
 	fseek(fd, 0L, SEEK_END);
-	int fileSize = ftell(fp); //length of file.
+	int fileSize = ftell(fd); //length of file.
 	fseek(fd, 0L, SEEK_SET);
 	char* fileContents = malloc(sizeof(char) * fileSize);//entire text content of file.
 
 	char c;
-	while ( EOF != (c = fgetc( fp )) && ++i < fileSize ){ //load entire content of file.
+	while ( EOF != (c = fgetc( fd )) && ++i < fileSize ){ //load entire content of file.
             fileContents[i] = c;
 	}
 
-    close (fd); //close file.
+    fclose (fd); //close file.
 
 	while (i < fileSize){//iterate through all the file's contents
 		char* wordBuffer;
-		wordBuffer = getWord(&fileContents, &i); //get next word from file
+		wordBuffer = getWord(fileContents, &i); //get next word from file
 		if (strlen(wordBuffer) + strlen(msgbuf.msgText) > chunkSize){ //send chunk to mem queue
 			msgbuf.msgType = curMapper++; //roundrobin fashion.
 			if(curMapper > nMappers){//next loop sends for first mapper again.
-				curmapper = 1;
+				curMapper = 1;
 			}
 			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
 			    {
 				perror("msgop: msgsnd failed");
 				break;
 			    }
-			memset(buffer, '\0', MSGSIZE);//clear message text for next chnk.
+			memset(msgbuf.msgText, '\0', MSGSIZE);//clear message text for next chnk.
 		}
 		free(wordBuffer);//clear buffer.
 	}
 
-	free(fileConents);//file fully iterated.
+	free(fileContents);//file fully iterated.
 	
 	
 	// while (getNextWord(fd, &curWord) != 0){// Something wrong here... getNextWord doesn't exist!
