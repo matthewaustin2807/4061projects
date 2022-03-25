@@ -1,3 +1,7 @@
+/**
+ * maula006  
+*/
+
 #include "utils.h"
 
 #define BUFSIZE 1024
@@ -63,7 +67,7 @@ char *getChunkData(int mapperID) {
         //Otherwise return pointer to the chunk data. 
         //
         if (0 == strcmp(buf.msgText, "!!!!!")){ //Check if an END message is received (End = "!!!!!")
-        	buf.msgType = 0xffffffff; //Send acknowledgement that an END message through a message of this special type.
+        	buf.msgType = 1234; //Send acknowledgement that an END message through a message of this special type.
         	strcpy(buf.msgText, "?????\0");//(Ack = "?????").
         	msgsnd(key, &buf, sizeof(struct msgBuffer), 0); //Send it back to master (i.e. sendChunkData)
         	return NULL;//Returns NULL to indicate to Mapper that this queue is empty.
@@ -77,6 +81,28 @@ char *getChunkData(int mapperID) {
   }
 
 }
+
+//Return the next word as an output parameter.
+//Return 1: it reads a word. Return 0: it reaches the end of the
+//stream. 
+int getNextWord(int fd, char* buffer){
+   char word[100];
+   memset(word, '\0', 100);
+   int i = 0;
+   while(read(fd, &word[i], 1) == 1 ){
+    if(word[i] == ' '|| word[i] == '\n' || word[i] == '\t'){
+        strcpy(buffer, word);
+        return 1;
+    }
+    if(word[i] == 0x0){
+      break;
+    }
+    i++;
+   }
+   strcpy(buffer, word);
+   return 0;
+}
+
 
 void sendChunkData(char *inputFile, int nMappers) {
 	struct msgBuffer msgbuf;
@@ -110,65 +136,69 @@ void sendChunkData(char *inputFile, int nMappers) {
 	//	Send it to getWord to filter invalid words.
 	//	Send it to the msgqueue
 	//How does getWord work?
+	
+	//IGNORE THIS CODE BELOW. Attempts to use GetWord.
+	//*probably* works... but nah. See the different code further below.
+
 	// One argument passes a chunk, i is the counter that returns the length of the chunk
 	// But why does getWord ask for a chunk? Wouldn't it make sense to send it a file?
-	int i = 0; //current position (i because getWord's arg is i)
-	fseek(fd, 0L, SEEK_END);
-	int fileSize = ftell(fd); //length of file.
-	fseek(fd, 0L, SEEK_SET);
-	char* fileContents = malloc(sizeof(char) * fileSize);//entire text content of file.
+	// int i = 0; //current position (i because getWord's arg is i)
+	// fseek(fd, 0L, SEEK_END);
+	// int fileSize = ftell(fd); //length of file.
+	// fseek(fd, 0L, SEEK_SET);
+	// char* fileContents = malloc(sizeof(char) * fileSize);//entire text content of file.
 
-	char c;
-	while ( EOF != (c = fgetc( fd )) && ++i < fileSize ){ //load entire content of file.
-            fileContents[i] = c;
-	}
+	// char c;
+	// while ( EOF != (c = fgetc( fd )) && ++i < fileSize ){ //load entire content of file.
+    //         fileContents[i] = c;
+	// }
 
-    fclose (fd); //close file.
+    // fclose (fd); //close file.
 
-	while (i < fileSize){//iterate through all the file's contents
-		char* wordBuffer;
-		wordBuffer = getWord(fileContents, &i); //get next word from file
-		if (strlen(wordBuffer) + strlen(msgbuf.msgText) > chunkSize){ //send chunk to mem queue
-			msgbuf.msgType = curMapper++; //roundrobin fashion.
-			if(curMapper > nMappers){//next loop sends for first mapper again.
-				curMapper = 1;
-			}
-			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
-			    {
-				perror("msgop: msgsnd failed");
-				break;
-			    }
-			memset(msgbuf.msgText, '\0', MSGSIZE);//clear message text for next chnk.
-		}
-		free(wordBuffer);//clear buffer.
-	}
-
-	free(fileContents);//file fully iterated.
-	
-	
-	// while (getNextWord(fd, &curWord) != 0){// Something wrong here... getNextWord doesn't exist!
-	// 	if (strlen(buf) + strlen(curWord) > 1024){ //chunk filled up.
-	// 		msgbuf.msgType = curMapper++; //The mapper to assign this chunk to (round-robin fashion, so increment to the next mapper for the next loop)
-	// 		strcpy(msgbuf.msgText, buf);
-	// 		msgbuf.msgText[strlen(buf)] = '\0';//top it off with null terminator.
+	// while (i < fileSize){//iterate through all the file's contents
+	// 	char* wordBuffer;
+	// 	wordBuffer = getWord(fileContents, &i); //get next word from file
+	// 	if (strlen(wordBuffer) + strlen(msgbuf.msgText) > chunkSize){ //send chunk to mem queue
+	// 		msgbuf.msgType = curMapper++; //roundrobin fashion.
+	// 		if(curMapper > nMappers){//next loop sends for first mapper again.
+	// 			curMapper = 1;
+	// 		}
 	// 		if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
 	// 		    {
 	// 			perror("msgop: msgsnd failed");
 	// 			break;
 	// 		    }
-	// 		if(curMapper > nMappers){//Go back to the first mapper when all mappers passed a chunk in this iteration.
-	// 			curMapper = 1;
-	// 		}
-	// 	} else { //chunk not full. Add to chunk!
-	// 		strcat(buf, curWord); 
-	// 		strcat(buf, " ");
+	// 		memset(msgbuf.msgText, '\0', MSGSIZE);//clear message text for next chnk.
+	// 		strcpy(msgbuf.msgText, wordBuffer);
 	// 	}
+	// 	free(wordBuffer);//clear buffer.
 	// }
 
+	// free(fileContents);//file fully iterated.
+	
+	
+	while (getNextWord(fd, &curWord) != 0){// Something wrong here... getNextWord doesn't exist!
+		if (strlen(buf) + strlen(curWord) > 1024){ //chunk filled up.
+			msgbuf.msgType = curMapper++; //The mapper to assign this chunk to (round-robin fashion, so increment to the next mapper for the next loop)
+			strcpy(msgbuf.msgText, buf);
+			msgbuf.msgText[strlen(buf)] = '\0';//top it off with null terminator.
+			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
+			    {
+				perror("msgop: msgsnd failed");
+				break;
+			    }
+			if(curMapper > nMappers){//Go back to the first mapper when all mappers passed a chunk in this iteration.
+				curMapper = 1;
+			}
+		} else { //chunk not full. Add to chunk!
+			strcat(buf, curWord); 
+			strcat(buf, " ");
+		}
+	}
+
   //TODO inputFile read complete, send END message to mappers
-	for (int i = 1; i <= nMappers; i++){
 		struct msgBuffer msgbuf;
-		msgbuf.msgType = i;//add an END to the ends of each of the mapper queues.
+		msgbuf.msgType = 1234;//add an END to the ends of each of the mapper queues.
 		strcpy(msgbuf.msgText, "!!!!!");//(End = "!!!!!")
 		msgbuf.msgText[strlen("!!!!!")] = '\0';//top the end message with a \0.
 		if (msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1) //failed to send message chunk (error)
@@ -176,7 +206,6 @@ void sendChunkData(char *inputFile, int nMappers) {
                 perror("msgop: msgsnd failed");
                 break;
             }
-	}
 
   //TODO wait to receive ACK from all mappers for END notification
 	//Simple behavior: From a special type (make in our case, maximum val of int), count how many ENDs were received.
