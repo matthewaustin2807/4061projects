@@ -191,10 +191,10 @@ int main(int argc, char *argv[]) {
 
 	// initializing global variables
 	mapperID = strtol(argv[1], NULL, 10);
-	//interDS = NULL;
+	interDS = NULL;
 
 	//create folder specifically for this mapper in output/MapOut
-	//mapOutDir = createMapDir(mapperID);
+	mapOutDir = createMapDir(mapperID);
 
 
 	int count = 0;
@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
 
 		char *retChunk = getChunkData(mapperID);
 		if(retChunk == NULL) {
-      printf("Error: Empty data");
+      		printf("Error: Empty data for %d\n", mapperID);
 			break;
 		}
 		count++;
@@ -223,22 +223,22 @@ int main(int argc, char *argv[]) {
      *
      *   
      */
-    FILE *fd = fopen("test.txt", "a+");
-    if(fd==NULL)
-       printf("ERROR: Cannot open the file");
-    int ret = fwrite(chunkData, sizeof(char), chunkSize, fd);
-    if(ret < 0){
-       printf("ERROR: Cannot write to file \n");
-       exit(0);
-    }
-    fclose(fd);
+    // FILE *fd = fopen("test.txt", "a+");
+    // if(fd==NULL)
+    //    printf("ERROR: Cannot open the file");
+    // int ret = fwrite(chunkData, sizeof(char), strlen(chunkData), fd);
+    // if(ret < 0){
+    //    printf("ERROR: Cannot write to file \n");
+    //    exit(0);
+    // }
+    // fclose(fd);
 
-		//map(chunkData);
+		map(chunkData);
 	}
 
 	//student code
-	//writeIntermediateDS();
-	//freeInterDS(interDS);
+	writeIntermediateDS();
+	freeInterDS(interDS);
 
 	return 0;
 }

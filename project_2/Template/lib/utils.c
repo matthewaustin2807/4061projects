@@ -3,19 +3,42 @@
 
 #define BUFSIZE 1024
 
-int key = 4061;
 char *getChunkData(int mapperID) {
-  //TODO open message queue
-   
+	key_t key = ftok("test", 65);
+	struct msgBuffer msgbuf;
+	char *chunk = malloc(1025);
 
+  //TODO open message queue
+    int msqid = msgget(key, 0666);
+	if (msqid == -1){
+		perror("Fail to open or create the queue");
+		return NULL;
+	}
 
   //TODO receive chunk from the master
-    
-
+    int nReadByte;
+	nReadByte = msgrcv(msqid, &msgbuf, MSGSIZE, mapperID, 0);
+	if (nReadByte == -1){
+		return NULL;
+	}
+	strcpy(chunk, msgbuf.msgText);
 
   //TODO check for END message and send ACK to master and return NULL. 
   //Otherwise return pointer to the chunk data. 
   //
+  	if (strcmp(chunk, "END") == 0){
+		msgbuf.msgType = 15;
+		msgbuf.msgText[0] = '0';
+		strcpy(msgbuf.msgText, "ACK");
+		msgbuf.msgText[strlen("ACK")] = '\0';
+		if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
+            {
+                perror("msgop: msgsnd failed");
+                return NULL;
+            }
+	} else {
+		return chunk;
+	}
 }
 
 //Return the next word as an output parameter.
@@ -41,46 +64,67 @@ int getNextWord(int fd, char* buffer){
 }
 
 void sendChunkData(char *inputFile, int nMappers) {
+	key_t key = ftok("test", 65);
 	struct msgBuffer msgbuf;
 	char curWord[100];
-	char buf[BUFSIZE];
+	char buf[1024+1];
 
-	memset(curWord, '\0', 100);
-	memset(buf, '\0', BUFSIZE);
+	memset(curWord, 0, 100);
+	memset(buf, 0, 1024);
 
 	int fd = open(inputFile, O_RDONLY);
+
   //TODO open the message queue
-	msqid = msgget(key, IPC_CREAT|0666);
+	int msqid = msgget(key, IPC_CREAT|0666);
 	if (msqid == -1){
 		perror("Fail to open or create the queue");
-		return 1;
+		return;
 	}
 
   //TODO Construct chunks of at most 1024 bytes each and send each chunk to a mapper in a round
   // robin fashion. Read one word at a time(End of word could be  \n, space or ROF). If a chunk 
   // is less than 1024 bytes, concatennate the word to the buffer.   
+    int mapperID = 1;
 	while (getNextWord(fd, curWord) != 0){
-		if (strlen(buf) + strlen(curWord) > 1024){
-			msgbuf.msgType = 1;
+		int strLength = strlen(buf) + strlen(curWord);
+		if (strLength > 1024){
+			msgbuf.msgType = mapperID;
 			strcpy(msgbuf.msgText, buf);
 			msgbuf.msgText[strlen(buf)] = '\0';
-			if(msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1)
+			if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
             {
                 perror("msgop: msgsnd failed");
-                break;
+                return;
             }
+			if (mapperID == nMappers){
+				mapperID = 1;
+			}
+			else {
+				mapperID++;
+			}
+			memset(buf, '\0', 1025);
+			strcat(buf, curWord);
 		} else {
 			strcat(buf, curWord);
-			strcat(buf, ' ');
 		}
 	}
+	strcat(buf, curWord);
+	msgbuf.msgType = mapperID;
+	strcpy(msgbuf.msgText, buf);
+	msgbuf.msgText[strlen(buf)] = '\0';
+	if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
+            {
+                perror("msgop: msgsnd failed");
+				// msgctl(msqid, IPC_RMID, NULL);
+                return;
+    }
   //TODO inputFile read complete, send END message to mappers
 	for (int i = 0; i < nMappers; i++){
 		struct msgBuffer msgbuf;
-		msgbuf.msgType = 1;
+		msgbuf.msgType = i + 1;
 		strcpy(msgbuf.msgText, "END");
 		msgbuf.msgText[strlen("END")] = '\0';
-		if (msgsnd(msqid, &msgbuf, sizeof(struct msgBuffer), 0) == -1)
+		if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
             {
                 perror("msgop: msgsnd failed");
                 break;
@@ -91,16 +135,17 @@ void sendChunkData(char *inputFile, int nMappers) {
 	int i = 0;
 	while (i < nMappers){
 		int nReadByte;
-		nReadByte = msgrcv(msqid, &msgbuf, sizeof(struct msgBuffer), 1, 0);
+		nReadByte = msgrcv(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, 15, 0);
 		if (nReadByte == -1){
+			msgctl(msqid, IPC_RMID, NULL);
 			break;
 		}
-		msgbuf.mtext[nReadByte] = '\0';
-		if (strcmp(msgbuf.mtext, "ACK") == 0){
+		msgbuf.msgText[nReadByte] = '\0';
+		if (strcmp(msgbuf.msgText, "ACK") == 0){
+			printf("%d", i);
 			i++;
 		}
 	}
-
 	msgctl(msqid, IPC_RMID, NULL);
 }
 
@@ -134,16 +179,19 @@ int getInterData(char *key, int reducerID) {
 }
 
 void shuffle(int nMappers, int nReducers) {
+	// key_t key = ftok("test", 33);
+    // //TODO open message queue
+    //  int msqid = msgget(key, IPC_CREAT | 0666);
 
-    //TODO open message queue
-     
 
-
-    //TODO traverse the directory of each Mapper and send the word filepath to the reducer
-    //You should check dirent is . or .. or DS_Store,etc. If it is a regular
-    //file, select the reducer using a hash function and send word filepath to
-    //reducer 
-
+    // //TODO traverse the directory of each Mapper and send the word filepath to the reducer
+    // //You should check dirent is . or .. or DS_Store,etc. If it is a regular
+    // //file, select the reducer using a hash function and send word filepath to
+    // //reducer 
+	// for (int i = 0; i < nMappers; i++){
+	// 	//construct each mapper directory name
+	// 	for 
+	// }
 
 
 
