@@ -189,11 +189,11 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 
-	// initializing global variables
+	// // initializing global variables
 	mapperID = strtol(argv[1], NULL, 10);
-	interDS = NULL;
+	// interDS = NULL;
 
-	//create folder specifically for this mapper in output/MapOut
+	// //create folder specifically for this mapper in output/MapOut
 	mapOutDir = createMapDir(mapperID);
 
 
@@ -219,7 +219,15 @@ int main(int argc, char *argv[]) {
      * To satisify intermediate submission, your goal is to implement
      * sendChunkData() and getChunkData(). In addition, We Commented out 
      * the code that is irrelevant to the intermediate submission. Once you
-     * finish the intermediate submission, please turn it on.  
+     * finish the  FILE *fd = fopen("test.txt", "a+");
+    if(fd==NULL)
+       printf("ERROR: Cannot open the file");
+    int ret = fwrite(chunkData, sizeof(char), strlen(chunkData), fd);
+    if(ret < 0){
+       printf("ERROR: Cannot write to file \n");
+       exit(0);
+    }
+    fclose(fd);intermediate submission, please turn it on.  
      *
      *   
      */

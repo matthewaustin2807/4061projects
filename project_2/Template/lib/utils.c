@@ -14,7 +14,6 @@ char *getChunkData(int mapperID) {
 		perror("Fail to open or create the queue");
 		return NULL;
 	}
-
   //TODO receive chunk from the master
     int nReadByte;
 	nReadByte = msgrcv(msqid, &msgbuf, MSGSIZE, mapperID, 0);
@@ -28,7 +27,7 @@ char *getChunkData(int mapperID) {
   //
   	if (strcmp(chunk, "END") == 0){
 		msgbuf.msgType = 15;
-		msgbuf.msgText[0] = '0';
+		// msgbuf.msgText[0] = '0';
 		strcpy(msgbuf.msgText, "ACK");
 		msgbuf.msgText[strlen("ACK")] = '\0';
 		if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
@@ -67,10 +66,10 @@ void sendChunkData(char *inputFile, int nMappers) {
 	key_t key = ftok("test", 65);
 	struct msgBuffer msgbuf;
 	char curWord[100];
-	char buf[1024+1];
+	char buf[1025];
 
 	memset(curWord, 0, 100);
-	memset(buf, 0, 1024);
+	memset(buf, '\0', 1025);
 
 	int fd = open(inputFile, O_RDONLY);
 
@@ -80,7 +79,6 @@ void sendChunkData(char *inputFile, int nMappers) {
 		perror("Fail to open or create the queue");
 		return;
 	}
-
   //TODO Construct chunks of at most 1024 bytes each and send each chunk to a mapper in a round
   // robin fashion. Read one word at a time(End of word could be  \n, space or ROF). If a chunk 
   // is less than 1024 bytes, concatennate the word to the buffer.   
@@ -142,7 +140,6 @@ void sendChunkData(char *inputFile, int nMappers) {
 		}
 		msgbuf.msgText[nReadByte] = '\0';
 		if (strcmp(msgbuf.msgText, "ACK") == 0){
-			printf("%d", i);
 			i++;
 		}
 	}
@@ -162,46 +159,116 @@ int hashFunction(char* key, int reducers){
 }
 
 int getInterData(char *key, int reducerID) {
+	struct msgBuffer msgbuf;
+	int nread;
+
+	key_t queueKey = ftok("test", 33);
     //TODO open message queue
-      
-
-
+    int msqid = msgget(queueKey, IPC_CREAT | 0666);
+	if (msqid == -1){
+		perror("Fail to open or create the queue");
+		return -1;
+	}
 
     //TODO receive data from the master
-     
+	nread = msgrcv(msqid, &msgbuf, MSGSIZE, reducerID, 0);
+	if (nread == -1){
+		return -1;
+	}
 
-
-
-    //TODO check for END message and send ACK to master and then return 0
+	//TODO check for END message and send ACK to master and then return 0
     //Otherwise return 1
-
-
+	if (strcmp(msgbuf.msgText, "END") == 0){
+		msgbuf.msgType = 100;
+		strcpy(msgbuf.msgText, "ACK");
+		msgbuf.msgText[strlen("ACK")] = '\0';
+		if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+			perror("send message failed");
+			return -1;
+		}
+		return 0;
+	}
+	else {
+		strcpy(key, msgbuf.msgText);
+		return 1;
+	}
 }
 
 void shuffle(int nMappers, int nReducers) {
-	// key_t key = ftok("test", 33);
-    // //TODO open message queue
-    //  int msqid = msgget(key, IPC_CREAT | 0666);
+	DIR *currMapDir;
+	struct dirent *d;
+	struct msgBuffer msgbuf;
 
+	key_t key = ftok("test", 33);
+    // // //TODO open message queue
+    int msqid = msgget(key, IPC_CREAT | 0666);
+	printf(
+		"%d\n", key
+	);
+	printf("%d\n", msqid);
 
     // //TODO traverse the directory of each Mapper and send the word filepath to the reducer
     // //You should check dirent is . or .. or DS_Store,etc. If it is a regular
     // //file, select the reducer using a hash function and send word filepath to
     // //reducer 
-	// for (int i = 0; i < nMappers; i++){
-	// 	//construct each mapper directory name
-	// 	for 
-	// }
+	for (int i = 0; i < nMappers; i++){
+		//construct each mapper directory name
+		char dirName[1024];
+		sprintf(dirName, "output/MapOut/Map_%d", i+1);
+		
+		//for each filename in directory, put them into hash function and send to msg queue.
+		//opendir
+		DIR *currMapDir;
+		if ((currMapDir = opendir(dirName)) == NULL){
+			return;
+		}
+		while (d = readdir(currMapDir)){
+			if (d->d_type == DT_REG){
+				printf("%s\n", d->d_name);
+				char wordFilePath[1024];
+				strcpy(wordFilePath, dirName);
+				strcat(wordFilePath, "/");
+				strcat(wordFilePath, d->d_name);
+				printf("%s\n", wordFilePath);
+				int reducerId = hashFunction(d->d_name, nReducers);
+				printf("%d\n", reducerId);
+				msgbuf.msgType = reducerId + 1;
+				strcpy(msgbuf.msgText, wordFilePath);
+				msgbuf.msgText[strlen(wordFilePath)] = '\0';
+				if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+					perror("msgop: msgsnd failed");
+					return;
+				}
+				memset(wordFilePath, '\0', 1024);
+			}
+		}
+	}
+	//TODO inputFile read complete, send END message to reducers
+		for (int i = 0; i < nReducers; i++){
+			msgbuf.msgType = i+1;
+			strcpy(msgbuf.msgText, "END");
+			msgbuf.msgText[strlen("END")] = '\0';
+			if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+					perror("msgop: msgsnd failed");
+					return;
+			}
+		}
 
-
-
-    //TODO inputFile read complete, send END message to reducers
-
-    
-
-
-    
-    //TODO  wait for ACK from the reducers for END notification
+		//TODO  wait for ACK from the reducers for END notification
+		int i = 0;
+		while (i < nReducers){
+			int nReadByte;
+			nReadByte = msgrcv(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, 100, 0);
+			if (nReadByte == -1){
+				msgctl(msqid, IPC_RMID, NULL);
+				break;
+			}
+			msgbuf.msgText[nReadByte] = '\0';
+			if (strcmp(msgbuf.msgText, "ACK") == 0){
+				i++;
+			}
+		}
+		msgctl(msqid, IPC_RMID, NULL);
 }
 
 // check if the character is valid for a word
