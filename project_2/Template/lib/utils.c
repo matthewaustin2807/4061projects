@@ -202,10 +202,6 @@ void shuffle(int nMappers, int nReducers) {
 	key_t key = ftok("test", 33);
     // // //TODO open message queue
     int msqid = msgget(key, IPC_CREAT | 0666);
-	printf(
-		"%d\n", key
-	);
-	printf("%d\n", msqid);
 
     // //TODO traverse the directory of each Mapper and send the word filepath to the reducer
     // //You should check dirent is . or .. or DS_Store,etc. If it is a regular
@@ -224,14 +220,11 @@ void shuffle(int nMappers, int nReducers) {
 		}
 		while (d = readdir(currMapDir)){
 			if (d->d_type == DT_REG){
-				printf("%s\n", d->d_name);
 				char wordFilePath[1024];
 				strcpy(wordFilePath, dirName);
 				strcat(wordFilePath, "/");
 				strcat(wordFilePath, d->d_name);
-				printf("%s\n", wordFilePath);
 				int reducerId = hashFunction(d->d_name, nReducers);
-				printf("%d\n", reducerId);
 				msgbuf.msgType = reducerId + 1;
 				strcpy(msgbuf.msgText, wordFilePath);
 				msgbuf.msgText[strlen(wordFilePath)] = '\0';
