@@ -22,7 +22,7 @@ char *getChunkData(int mapperID) {
   //TODO check for END message and send ACK to master and return NULL. 
   //Otherwise return pointer to the chunk data. 
   //
-  	if (strcmp(chunk, "END") == 0){
+  if (strcmp(chunk, "END") == 0){
 		msgbuf.msgType = 12345;
 		strcpy(msgbuf.msgText, "ACK");
 		msgbuf.msgText[strlen("ACK")] = '\0';
@@ -192,7 +192,6 @@ int getInterData(char *key, int reducerID) {
 
 
 void shuffle(int nMappers, int nReducers) {
-	DIR *currMapDir;
 	struct dirent *d;
 	struct msgBuffer msgbuf;
 
