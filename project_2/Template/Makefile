@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS=-g -Wall
 
 SRCDIR=src
 INCLDIR=include
@@ -21,10 +21,12 @@ $(LIBDIR)/utils.o: $(LIBDIR)/utils.c
 
 #500KB
 t1:
-# 	make -i clean
-# 	make
 	./mapreduce 5 2 test/T1/F1.txt
 
+#Make target to build for testing intermediate submission
+inter: CFLAGS += -D TEST_INTERMEDIATE
+inter: mapreduce
+
 clean:
-	rm lib/utils.o mapreduce mapper reducer
+	rm -f lib/utils.o mapreduce mapper reducer
 	rm -rf output

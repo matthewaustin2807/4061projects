@@ -125,6 +125,7 @@ void writeIntermediateDS() {
 		int fd = open(wordFileName, O_CREAT | O_WRONLY, 0777);
 		if (fd < 0){
 			printf("ERROR: Cannot open the file %s\n", wordFileName);
+			fflush(stdout);
 			exit(0);
 		}
 
@@ -132,6 +133,7 @@ void writeIntermediateDS() {
 		int ret = write(fd, travNode -> key, strlen(travNode -> key));
 		if(ret < 0){
 			printf("ERROR: Cannot write to file %s\n", wordFileName);
+			fflush(stdout);
 			exit(0);
 		}
 
@@ -139,6 +141,7 @@ void writeIntermediateDS() {
 		ret = write(fd, " ", 1);
 		if(ret < 0){
 			printf("ERROR: Cannot write to file %s\n", wordFileName);
+			fflush(stdout);
 			exit(0);
 		}
 
@@ -148,6 +151,7 @@ void writeIntermediateDS() {
 			ret = write(fd, tNode -> value, strlen(tNode -> value)); // space after the word
 			if(ret < 0){
 				printf("ERROR: Cannot write to file %s\n", wordFileName);
+				fflush(stdout);
 				exit(0);
 			}
 
@@ -155,6 +159,7 @@ void writeIntermediateDS() {
 			ret = write(fd, " ", 1);
 			if(ret < 0){
 				printf("ERROR: Cannot write to file %s\n", wordFileName);
+				fflush(stdout);
 				exit(0);
 			}
 			tNode = tNode -> next;
@@ -164,6 +169,7 @@ void writeIntermediateDS() {
 		ret = write(fd, tNode -> value, strlen(tNode -> value)); // space after the word
 		if(ret < 0){
 			printf("ERROR: Cannot write to file %s\n", wordFileName);
+			fflush(stdout);
 			exit(0);
 		}
 
@@ -171,8 +177,11 @@ void writeIntermediateDS() {
 		ret = write(fd, "\n", 1);
 		if(ret < 0){
 			printf("ERROR: Cannot write to file %s\n", wordFileName);
+			fflush(stdout);
 			exit(0);
 		}
+		free(wordFileName);
+		
 		//close file
 		close(fd);
 
@@ -186,15 +195,18 @@ int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		printf("Less number of arguments.\n");
 		printf("./mapper mapperID\n");
+		fflush(stdout);
 		exit(0);
 	}
 
-	// // initializing global variables
+	// initializing global variables
 	mapperID = strtol(argv[1], NULL, 10);
-	// interDS = NULL;
+	#ifndef TEST_INTERMEDIATE
+		interDS = NULL;
 
-	// //create folder specifically for this mapper in output/MapOut
-	mapOutDir = createMapDir(mapperID);
+		//create folder specifically for this mapper in output/MapOut
+		mapOutDir = createMapDir(mapperID);
+	#endif
 
 
 	int count = 0;
@@ -204,49 +216,48 @@ int main(int argc, char *argv[]) {
 
 		char *retChunk = getChunkData(mapperID);
 		if(retChunk == NULL) {
-      		printf("Error: Empty data for %d\n", mapperID);
+			#ifdef TEST_INTERMEDIATE
+      			printf("NULL Received from Mapper [%d]\n", mapperID);
+			#endif
 			break;
 		}
 		count++;
 		strcpy(chunkData, retChunk);
 		free(retChunk);
     
-    /*
-     *
-     * The debug code is only for the intermediate submission.
-     * It is used to check the content in test.txt and the input file are the same. 
-     * Comment out the debug code when you are working on the final submission. 
-     * To satisify intermediate submission, your goal is to implement
-     * sendChunkData() and getChunkData(). In addition, We Commented out 
-     * the code that is irrelevant to the intermediate submission. Once you
-     * finish the  FILE *fd = fopen("test.txt", "a+");
-    if(fd==NULL)
-       printf("ERROR: Cannot open the file");
-    int ret = fwrite(chunkData, sizeof(char), strlen(chunkData), fd);
-    if(ret < 0){
-       printf("ERROR: Cannot write to file \n");
-       exit(0);
-    }
-    fclose(fd);intermediate submission, please turn it on.  
-     *
-     *   
-     */
-    // FILE *fd = fopen("test.txt", "a+");
-    // if(fd==NULL)
-    //    printf("ERROR: Cannot open the file");
-    // int ret = fwrite(chunkData, sizeof(char), strlen(chunkData), fd);
-    // if(ret < 0){
-    //    printf("ERROR: Cannot write to file \n");
-    //    exit(0);
-    // }
-    // fclose(fd);
+		#ifdef TEST_INTERMEDIATE
+			/*
+			*
+			* The debug code is only for the intermediate submission.
+			* It is used to check the content in test.txt and the input file are the same. 
+			* Comment out the debug code when you are working on the final submission. 
+			* To satisify intermediate submission, your goal is to implement
+			* sendChunkData() and getChunkData(). In addition, We Commented out 
+			* the code that is irrelevant to the intermediate submission. Once you
+			* finish the intermediate submission, please turn it on.  
+			*
+			*   
+			*/
+			printf("inside write\n");
+			FILE *fd = fopen("test.txt", "a+");
+			if(fd==NULL)
+				printf("ERROR: Cannot open the file");
 
-		map(chunkData);
+			int ret = fwrite(chunkData, sizeof(char), strlen(chunkData), fd);
+			if(ret < 0){
+				printf("ERROR: Cannot write to file \n");
+				exit(0);
+			}
+			fclose(fd);
+		#else
+			map(chunkData);
+		#endif
 	}
 
-	//student code
-	writeIntermediateDS();
-	freeInterDS(interDS);
+	#ifndef TEST_INTERMEDIATE
+		writeIntermediateDS();
+		freeInterDS(interDS);
+	#endif
 
 	return 0;
 }

@@ -1,7 +1,4 @@
 #include "utils.h"
-#include <stdio.h>
-
-#define BUFSIZE 1024
 
 char *getChunkData(int mapperID) {
 	key_t key = ftok("test", 65);
@@ -9,14 +6,14 @@ char *getChunkData(int mapperID) {
 	char *chunk = malloc(1025);
 
   //TODO open message queue
-    int msqid = msgget(key, 0666);
+  int msqid = msgget(key, 0666);
 	if (msqid == -1){
 		perror("Fail to open or create the queue");
 		return NULL;
 	}
   //TODO receive chunk from the master
-    int nReadByte;
-	nReadByte = msgrcv(msqid, &msgbuf, MSGSIZE, mapperID, 0);
+  int nReadByte;
+	nReadByte = msgrcv(msqid, &msgbuf, MSGSIZE, mapperID, IPC_NOWAIT);
 	if (nReadByte == -1){
 		return NULL;
 	}
@@ -26,23 +23,22 @@ char *getChunkData(int mapperID) {
   //Otherwise return pointer to the chunk data. 
   //
   	if (strcmp(chunk, "END") == 0){
-		msgbuf.msgType = 15;
-		// msgbuf.msgText[0] = '0';
+		msgbuf.msgType = 12345;
 		strcpy(msgbuf.msgText, "ACK");
 		msgbuf.msgText[strlen("ACK")] = '\0';
-		if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
-            {
-                perror("msgop: msgsnd failed");
-                return NULL;
-            }
+		if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+      perror("msgop: msgsnd failed");
+      return NULL;
+    }
 	} else {
 		return chunk;
 	}
 }
 
-//Return the next word as an output parameter.
-//Return 1: it reads a word. Return 0: it reaches the end of the
-//stream. 
+
+//return the next word as an output parameter
+//return 1: indicates read a word
+//retrun 0: indicates reach at the end of the stream
 int getNextWord(int fd, char* buffer){
    char word[100];
    memset(word, '\0', 100);
@@ -61,6 +57,7 @@ int getNextWord(int fd, char* buffer){
    strcpy(buffer, word);
    return 0;
 }
+
 
 void sendChunkData(char *inputFile, int nMappers) {
 	key_t key = ftok("test", 65);
@@ -106,34 +103,33 @@ void sendChunkData(char *inputFile, int nMappers) {
 			strcat(buf, curWord);
 		}
 	}
+  //send the last file chunk
 	strcat(buf, curWord);
 	msgbuf.msgType = mapperID;
 	strcpy(msgbuf.msgText, buf);
 	msgbuf.msgText[strlen(buf)] = '\0';
-	if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
-            {
-                perror("msgop: msgsnd failed");
-				// msgctl(msqid, IPC_RMID, NULL);
-                return;
-    }
+	if(msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+    perror("msgop: msgsnd failed");
+    return;
+  }
+
   //TODO inputFile read complete, send END message to mappers
 	for (int i = 0; i < nMappers; i++){
 		struct msgBuffer msgbuf;
 		msgbuf.msgType = i + 1;
 		strcpy(msgbuf.msgText, "END");
 		msgbuf.msgText[strlen("END")] = '\0';
-		if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1)
-            {
-                perror("msgop: msgsnd failed");
-                break;
-            }
+		if (msgsnd(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, IPC_NOWAIT) == -1){
+      perror("msgop: msgsnd failed");
+      break;
+    }
 	}
 
   //TODO wait to receive ACK from all mappers for END notification
 	int i = 0;
 	while (i < nMappers){
 		int nReadByte;
-		nReadByte = msgrcv(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, 15, 0);
+		nReadByte = msgrcv(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, 12345, 0);
 		if (nReadByte == -1){
 			msgctl(msqid, IPC_RMID, NULL);
 			break;
@@ -164,13 +160,13 @@ int getInterData(char *key, int reducerID) {
 
 	key_t queueKey = ftok("test", 33);
     //TODO open message queue
-    int msqid = msgget(queueKey, IPC_CREAT | 0666);
+  int msqid = msgget(queueKey, IPC_CREAT | 0666);
 	if (msqid == -1){
 		perror("Fail to open or create the queue");
 		return -1;
 	}
 
-    //TODO receive data from the master
+  //TODO receive data from the master
 	nread = msgrcv(msqid, &msgbuf, MSGSIZE, reducerID, 0);
 	if (nread == -1){
 		return -1;
@@ -193,6 +189,7 @@ int getInterData(char *key, int reducerID) {
 		return 1;
 	}
 }
+
 
 void shuffle(int nMappers, int nReducers) {
 	DIR *currMapDir;
