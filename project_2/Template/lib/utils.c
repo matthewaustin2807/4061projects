@@ -249,7 +249,6 @@ void shuffle(int nMappers, int nReducers) {
 			int nReadByte;
 			nReadByte = msgrcv(msqid, &msgbuf, strlen(msgbuf.msgText) + 1, 100, 0);
 			if (nReadByte == -1){
-				msgctl(msqid, IPC_RMID, NULL);
 				break;
 			}
 			msgbuf.msgText[nReadByte] = '\0';
