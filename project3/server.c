@@ -80,10 +80,13 @@ void gracefulTerminationHandler(int sig_caught) {
   *                      If you are using the dynamic pool thread, you should stop that thread [Extra Credit A]
   *                      pthread_cancel will be your friend here... look at the boottom of server.h for helpful functions to be able to cancel the threads
   */
+  
 
   /* TODO (D.IV)
   *    Description:      Close the log file
   */
+  
+  //DO THIS MATT
 
   /* TODO (D.V)
   *    Description:      Remove the cache by calling deleteCache IF using cache [Extra Credit B]
