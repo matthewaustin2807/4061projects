@@ -10,26 +10,41 @@ uint cache_flag         = INVALID_FLAG;                         //Global flag to
 struct sigaction action;                                        //Global signal handling structure for gracefully terminating from SIGINT
 FILE *logfile;                                                  //Global file pointer for writing to log file in worker
 
+int cur_queue_front	 = 0; 	//Tracker of which index from the queue to dequeue from.
+int cur_queue_back	 = 0;	//Tracker of which index from the queue to enqueue from.
+int num_requests 	 = 0;	//Tracker of # of requests in the request_queue queue.
+
+pthread_t worker_thread[MAX_THREADS] = INVALID; //holds the worker threads
+pthread_t dispatch_thread[MAX_THREADS] = INVALID; //holds the dispatcher threads
+int thread_id[MAX_THREADS] = INVALID; //keeps track of the IDs of the threads (non-functional)
+
+pthread_mutex_t write_lock = PTHREAD_MUTEX_INITIALIZER; //vaguely remember this... You need one for reading, one for writing.
+pthread_mutex_t read_lock = PTHREAD_MUTEX_INITIALIZER; 
+pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER; //for when queue is full, don't add requests.
+pthread_cond_t queue_empty = PTHREAD_COND_INITIALIZER; //for when queue is empty, terminate?
+
+request_t request_queue[MAX_QUEUE_LEN] = INVALID; //holds some requests from the file (will need a thread-safe function to enqueue to it if/when needed).
+
 
 /* ************************ Global Hints **********************************/
 
 //int ????      = 0;                                                //[Extra Credit B]  --> If using cache, how will you track which cache entry to evict from array?
-//int ????      = 0;                                                //[worker()]        --> How will you track which index in the request queue to remove next?
-//int ????      = 0;                                                //[dispatcher()]    --> How will you know where to insert the next request received into the request queue?
-//int ????      = 0;                                                //[multiple funct]  --> How will you update and utilize the current number of requests in the request queue?
+//int ????      = 0; (cur_queue_front)                                                //[worker()]        --> How will you track which index in the request queue to remove next?
+//int ????      = 0; (cur_queue_back)                                               //[dispatcher()]    --> How will you know where to insert the next request received into the request queue?
+//int ????      = 0; (num_requests)                                               //[multiple funct]  --> How will you update and utilize the current number of requests in the request queue?
 
 
-//pthread_t ???[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for workers?
-//pthread_t ???[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for dispatchers?
-//int ???[MAX_THREADS];                                             //[multiple funct]  --> Might be helpful to track the ID's of your threads in a global array
+//pthread_t ???[MAX_THREADS]; (worker_thread)                                      //[multiple funct]  --> How will you track the p_thread's that you create for workers?
+//pthread_t ???[MAX_THREADS]; (dispatch_thread)                                      //[multiple funct]  --> How will you track the p_thread's that you create for dispatchers?
+//int ???[MAX_THREADS]; (thread_id)                                            //[multiple funct]  --> Might be helpful to track the ID's of your threads in a global array
 //pthread_t ???;                                                    //[Extra Credit A]  --> If you create a thread pool worker thread, you need to track it globally
 
 
-//pthread_mutex_t ???   = PTHREAD_MUTEX_INITIALIZER;                //What kind of locks will you need to make everything thread safe?                                    [Hint you need multiple]
-//pthread_cond_t ???    = PTHREAD_COND_INITIALIZER;                 //What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
+//pthread_mutex_t ???   = PTHREAD_MUTEX_INITIALIZER;  (write_lock, read_lock)              //What kind of locks will you need to make everything thread safe?             [Hint you need multiple]
+//pthread_cond_t ???    = PTHREAD_COND_INITIALIZER; (queue_full, queue_empty)              /What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
 
 
-//request_t ???[MAX_QUEUE_LEN];                                     //How will you track the requests globally between threads? How will you ensure this is thread safe?
+//request_t ???[MAX_QUEUE_LEN]; (request)                                    //How will you track the requests globally between threads? How will you ensure this is thread safe?
 
 
 //cache_entry_t* ?????;                                             //[Extra Credit B]  --> How will you read from, add to, etc. the cache? Likely want thisto be global
@@ -43,16 +58,20 @@ FILE *logfile;                                                  //Global file po
 
 /* ************************ Signal Handler Code **********************************/
 void gracefulTerminationHandler(int sig_caught) {
+
   /* TODO (D.I)
   *    Description:      Mask SIGINT signal, so the signal handler does not get interrupted (this is a best practice)
   *    Hint:             See Lab Code
   */
+  signal(SIGINT, SIG_IGN);
 
   /* TODO (D.II)
   *    Description:      Print to stdout the number of pending requests in the request queue
   *    Hint:             How should you check the # of remaining requests? This should be a global... Set that number to num_remn_req before print
   */
-  int num_remn_req = -1;  
+  printf("Dispatcher Received Request: fd[%d] request[%s]\n", <insert_fd>, <insert_str>);
+  
+  int num_remn_req = -1;  //what is this?
   printf("\nGraceful Termination: There are [%d] requests left in the request queue\n", num_remn_req);
 
   /* TODO (D.III)
@@ -201,6 +220,7 @@ void * dispatch(void *arg) {
   /* TODO (B.II)
   *    Description:      Get the id as an input argument from arg, set it to ID
   */
+  int id = (int) arg; //argument is just the given id of this dispatcher.
   
   printf("%-30s [%3d] Started\n", "Dispatcher", id);
 
@@ -215,6 +235,7 @@ void * dispatch(void *arg) {
     *                      Print the request information using a command like this: 
     *                      printf(“Dispatcher Received Request: fd[%d] request[%s]\n”, <insert_fd>, <insert_str>); 
     */
+    request_t newRequest = 
 
     /* TODO (B.III)
     *    Description:      Accept client connection
@@ -267,7 +288,7 @@ void * worker(void *arg) {
   int filesize    = 0;                                    //Integer for holding the file size returned from readFromDisk or the cache
   void *memory    = NULL;                                 //memory pointer where contents being requested are read and stored
   int fd          = INVALID;                              //Integer to hold the file descriptor of incoming request
-  char mybuf[BUFF_SIZE];                                  //String to hold the file path from the request
+  char mybuf[BUFF_SIZE];                                  //String to hold the file path from the requestww
 
   #pragma GCC diagnostic pop                              //TODO --> Remove these before submission and fix warnings
 
@@ -361,6 +382,14 @@ int main(int argc, char **argv) {
   /* TODO (A.I)
   *    Description:      Get the input args --> (1) port (2) path (3) num_dispatcher (4) num_workers (5) dynamic_flag (6) cache_flag (7) queue_length (8) cache_size
   */
+  port = argv[1];
+  path = argv[2];
+  num_dispatcher = argv[3];
+  num_workers = argv[4]; //this part can be made dynamic later I guess. For extra cred, maybe this will act as the starting amount of workers?
+  dynamic_flag = argv[5];
+  cache_flag = argv[6]; //
+  queue_length = argv[7];
+  cache_size = argv[8];
 
   /* TODO (A.II)
   *    Description:     Perform error checks on the input arguments
@@ -369,6 +398,26 @@ int main(int argc, char **argv) {
   *                     (5) dynamic_flag: {Should be 1 or 0} | (6) cache_flag: {Should be 1 or 0} | (7) queue_length: {Should be >= 1 and <= MAX_QUEUE_LEN}
   *                     (8) cache_size: {Should be >= 1 and <= MAX_CE}
   */
+  if (port < MIN_PORT || port > MAX_PORT){
+  	printf("error: the port is not a valid value (port should be >= %d and <=%d", MIN_PORT, MAX_PORT);
+  	fflush(stdout);
+  	return 1;
+  }
+  if (num_dispatcher < 1 || num_dispatcher > MAX_THREADS){
+  	printf("error: the num_dispatcher is not a valid value (num_dispatcher should be >= 1 and <=%d", MAX_THREADS);
+  	fflush(stdout);
+  	return 1;  
+  }
+  if (dynamic_flag != 1 && dynamic_flag != 0){
+  	printf("error: dynamic_flag is not a valid value (dynamic_flag should be either 1 or 0).");
+  	fflush(stdout);
+  	return 1;  
+  }
+  if (cache_size <1 && > MAX_CE){
+  	printf("error: cache_size is not a valid value (cache_size should be >= 1 or <= %d", MAX_CE);	
+  	fflush(stdout);
+  	return 1;  
+  }
 
 
 
@@ -388,30 +437,35 @@ int main(int argc, char **argv) {
   *    Description:      Change SIGINT action for graceful termination
   *    Hint:             Implement gracefulTerminationHandler(), use global "struct sigaction action", see lab 8 for signal handlers
   */
+  signal (SIGINT, gracefulTerminationHandler);
 
 
   /* TODO (A.IV)
   *    Description:      Open log file
   *    Hint:             Use Global "File* logfile", use LOG_FILE_NAME as the name, what open flags do you want?
   */
+  
+  //pls do this matt, you know more about file I/O than I do.
 
   /* TODO (A.V)
   *    Description:      Change the current working directory to server root directory
   *    Hint:             Check for error!
   */
-
+  
+  //pls do this matt, you know more about file I/O than I do.
 
   /* TODO (A.VI)
   *    Description:      Initialize cache (IF CACHE FLAG SET) (extra credit B)
   *    Local Function:   void    initCache();
   */
+  //(can do later if wanted; not evaluated for final submission)
 
 
   /* TODO (A.VII)
   *    Description:      Start the server
   *    Utility Function: void init(int port); //utils.h => Line 14
   */
-  
+  init(port);
 
   /* TODO (A.VIII)
   *    Description:      Create dispatcher and worker threads (all threads should be detachable)
@@ -419,7 +473,15 @@ int main(int argc, char **argv) {
   *                      You will want to initialize some kind of global array to pass in thread ID's
   *                      How should you track this p_thread so you can terminate it later? [global]
   */
-
+  for (int i = 0; i < num_dispatcher + num_worker; i++) { //initializing id values.
+  	thread_id[i] = i;
+  }
+  for (int i = 0; i < num_dispatcher; i++){
+    pthread_create(&dispatch_thread[i], NULL, dispatch, (void *) thread_id[i]); 
+  }
+  for (int i = 0; i <num_worker; i++){
+  	pthread_create(&worker_thread[i], NULL, worker, (void *) thread_id[num_dispatcher + i]);
+  }
 
   /* TODO (A.IX)
   *    Description:      Create dynamic pool manager thread (IF DYNAMIC FLAG SET) [Extra Credit A]
@@ -433,7 +495,12 @@ int main(int argc, char **argv) {
   *    Hint:             What can you call that will wait for threads to exit? How can you get threads to exit from ^C (or SIGINT)
   *                      If you are using the dynamic pool flag, you should wait for that thread to exit too
   */
-
+  for (int i = 0; i < num_dispatcher; i++){
+  	pthread_join(dispatch_thread[i]);
+  }
+  for (int i = 0; i < num_; i++){
+  	pthread_join(worker_thread[i]);
+  }
 
   /* SHOULD NOT HIT THIS CODE UNLESS RECEIVED SIGINT AND THREADS CLOSED */
   /********************* DO NOT REMOVE SECTION - TOP     *********************/
