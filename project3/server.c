@@ -15,18 +15,18 @@ FILE *logfile;                                                  //Global file po
 
 //int ????      = 0;                                                //[Extra Credit B]  --> If using cache, how will you track which cache entry to evict from array?
 //int ????      = 0;                                                //[worker()]        --> How will you track which index in the request queue to remove next?
-//int ????      = 0;                                                //[dispatcher()]    --> How will you know where to insert the next request received into the request queue?
-//int ????      = 0;                                                //[multiple funct]  --> How will you update and utilize the current number of requests in the request queue?
+int nextInsertIndex = 0;                                               //[dispatcher()]    --> How will you know where to insert the next request received into the request queue?
+int currRequestLen = 0;                                                //[multiple funct]  --> How will you update and utilize the current number of requests in the request queue?
 
 
-//pthread_t ???[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for workers?
-//pthread_t ???[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for dispatchers?
-//int ???[MAX_THREADS];                                             //[multiple funct]  --> Might be helpful to track the ID's of your threads in a global array
+pthread_t workerThreads[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for workers?
+pthread_t dispatcherThreads[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for dispatchers?
+int threadIDs[MAX_THREADS];                                             //[multiple funct]  --> Might be helpful to track the ID's of your threads in a global array
 //pthread_t ???;                                                    //[Extra Credit A]  --> If you create a thread pool worker thread, you need to track it globally
 
 
-//pthread_mutex_t ???   = PTHREAD_MUTEX_INITIALIZER;                //What kind of locks will you need to make everything thread safe?                                    [Hint you need multiple]
-//pthread_cond_t ???    = PTHREAD_COND_INITIALIZER;                 //What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
+pthread_mutex_t lock_1   = PTHREAD_MUTEX_INITIALIZER;                //What kind of locks will you need to make everything thread safe?                                    [Hint you need multiple]
+pthread_cond_t cond_1    = PTHREAD_COND_INITIALIZER;                 //What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
 
 
 //request_t ???[MAX_QUEUE_LEN];                                     //How will you track the requests globally between threads? How will you ensure this is thread safe?
@@ -47,12 +47,13 @@ void gracefulTerminationHandler(int sig_caught) {
   *    Description:      Mask SIGINT signal, so the signal handler does not get interrupted (this is a best practice)
   *    Hint:             See Lab Code
   */
+  signal(SIGINT, SIG_IGN);
 
   /* TODO (D.II)
   *    Description:      Print to stdout the number of pending requests in the request queue
   *    Hint:             How should you check the # of remaining requests? This should be a global... Set that number to num_remn_req before print
   */
-  int num_remn_req = -1;  
+  int num_remn_req = currRequestLen;  
   printf("\nGraceful Termination: There are [%d] requests left in the request queue\n", num_remn_req);
 
   /* TODO (D.III)
@@ -61,10 +62,16 @@ void gracefulTerminationHandler(int sig_caught) {
   *                      If you are using the dynamic pool thread, you should stop that thread [Extra Credit A]
   *                      pthread_cancel will be your friend here... look at the boottom of server.h for helpful functions to be able to cancel the threads
   */
+  EnableThreadCancel();
+  for(int i = 0; i < MAX_THREADS; i++){
+    pthread_cancel(threadIDs[i]);
+  }
+
 
   /* TODO (D.IV)
   *    Description:      Close the log file
   */
+  fclose(logfile);
 
   /* TODO (D.V)
   *    Description:      Remove the cache by calling deleteCache IF using cache [Extra Credit B]
@@ -195,17 +202,18 @@ void * dispatch(void *arg) {
   *    Hint:             pthread_cleanup_push(pthread_lock_release,  <address_to_lock>);
   *                      pthread_cleanup_push(pthread_mem_release,   <address_to_mem>);   [If you are putting memory in the cache, who free's it? answer --> cache delete]
   */
+  // pthread_cleanup_push(pthread_lock_release, &lock_1);
 
   int id = -1;
 
   /* TODO (B.II)
   *    Description:      Get the id as an input argument from arg, set it to ID
   */
-  
+  id = *(int *)arg;
   printf("%-30s [%3d] Started\n", "Dispatcher", id);
 
   while (1) {
-
+    
     /* TODO (B.INTERMEDIATE SUBMISSION)
     *    Description:      Receive a single request and print the conents of that request
     *                      The TODO's below are for the full submission, you do not have to use a 
@@ -215,6 +223,12 @@ void * dispatch(void *arg) {
     *                      Print the request information using a command like this: 
     *                      printf(“Dispatcher Received Request: fd[%d] request[%s]\n”, <insert_fd>, <insert_str>); 
     */
+    char buf[1024];
+    request_t *requestQueue = malloc(sizeof(request_t));
+    requestQueue->fd = accept_connection();
+    printf("test\n");
+    get_request(requestQueue->fd, buf);
+    printf("Dispatcher Received Request: fd[%d] request[%s]\n", requestQueue->fd, buf);
 
     /* TODO (B.III)
     *    Description:      Accept client connection
@@ -243,6 +257,7 @@ void * dispatch(void *arg) {
   *                      Call pop for each time you call _push... the 0 flag means do not execute the cleanup handler after popping
   */
 
+  // pthread_cleanup_pop(0);
    /********************* DO NOT REMOVE SECTION - TOP     *********************/
    return NULL;
    /********************* DO NOT REMOVE SECTION - BOTTOM  *********************/ 
@@ -361,6 +376,16 @@ int main(int argc, char **argv) {
   /* TODO (A.I)
   *    Description:      Get the input args --> (1) port (2) path (3) num_dispatcher (4) num_workers (5) dynamic_flag (6) cache_flag (7) queue_length (8) cache_size
   */
+  port = atoi(argv[1]);
+  memset(path, 0, PATH_MAX);
+  strcpy(path, argv[2]);
+  num_dispatcher = atoi(argv[3]);
+  num_worker = atoi(argv[4]);
+  dynamic_flag = atoi(argv[5]);
+  cache_flag = atoi(argv[6]);
+  queue_len = atoi(argv[7]);
+  cache_len = atoi(argv[8]);
+
 
   /* TODO (A.II)
   *    Description:     Perform error checks on the input arguments
@@ -369,7 +394,16 @@ int main(int argc, char **argv) {
   *                     (5) dynamic_flag: {Should be 1 or 0} | (6) cache_flag: {Should be 1 or 0} | (7) queue_length: {Should be >= 1 and <= MAX_QUEUE_LEN}
   *                     (8) cache_size: {Should be >= 1 and <= MAX_CE}
   */
-
+  if ((port < MIN_PORT || port > MAX_PORT) ||
+      (num_dispatcher < 1 || num_dispatcher > MAX_THREADS) || 
+      (num_worker < 1 || num_worker > MAX_THREADS) ||
+      (dynamic_flag != 0 && dynamic_flag != 1) ||
+      (cache_flag != 0 && cache_flag != 1) ||
+      (queue_len < 1 || queue_len > MAX_QUEUE_LEN) ||
+      (cache_len < 1 || cache_len > MAX_CE)) {
+        printf("a\n");
+        return -1;
+      }
 
 
   /********************* DO NOT REMOVE SECTION - TOP    *********************/
@@ -388,30 +422,39 @@ int main(int argc, char **argv) {
   *    Description:      Change SIGINT action for graceful termination
   *    Hint:             Implement gracefulTerminationHandler(), use global "struct sigaction action", see lab 8 for signal handlers
   */
-
+    action.sa_handler = gracefulTerminationHandler;
+    action.sa_flags = 0;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGINT, &action, NULL);
 
   /* TODO (A.IV)
   *    Description:      Open log file
   *    Hint:             Use Global "File* logfile", use LOG_FILE_NAME as the name, what open flags do you want?
   */
+  logfile = fopen(LOG_FILE_NAME, "w");
 
   /* TODO (A.V)
   *    Description:      Change the current working directory to server root directory
   *    Hint:             Check for error!
   */
-
+  if (chdir(path) != 0){
+    perror("chdir() to server root failed");
+  }
 
   /* TODO (A.VI)
   *    Description:      Initialize cache (IF CACHE FLAG SET) (extra credit B)
   *    Local Function:   void    initCache();
   */
+  if (cache_flag){
+    initCache();
+  }
 
 
   /* TODO (A.VII)
   *    Description:      Start the server
   *    Utility Function: void init(int port); //utils.h => Line 14
   */
-  
+  init(port);
 
   /* TODO (A.VIII)
   *    Description:      Create dispatcher and worker threads (all threads should be detachable)
@@ -419,7 +462,27 @@ int main(int argc, char **argv) {
   *                      You will want to initialize some kind of global array to pass in thread ID's
   *                      How should you track this p_thread so you can terminate it later? [global]
   */
+  int threadID = 0;
+  for(int i = 0; i < num_dispatcher; i++){
+    if(pthread_create(&(dispatcherThreads[i]), NULL, dispatch, &i) != 0){
+      printf("Thread %d failed to create\n", i);
+    }
+    else{
+      printf("Thread created successfully: %d\n", i);
+      printf("%ld\n", dispatcherThreads[i]);
+      threadIDs[threadID++] = dispatcherThreads[i];
+    }
+  }
 
+  for(int i = 0; i < num_worker; i++){
+    if(pthread_create(&(workerThreads[i]), NULL, worker, &i) != 0){
+      printf("Thread %d failed to create\n", i);
+    }
+    else{
+      printf("Thread created successfully: %d\n", i);
+      threadIDs[threadID++] = workerThreads[i];
+    }
+  }
 
   /* TODO (A.IX)
   *    Description:      Create dynamic pool manager thread (IF DYNAMIC FLAG SET) [Extra Credit A]
@@ -433,7 +496,9 @@ int main(int argc, char **argv) {
   *    Hint:             What can you call that will wait for threads to exit? How can you get threads to exit from ^C (or SIGINT)
   *                      If you are using the dynamic pool flag, you should wait for that thread to exit too
   */
-
+  for (int i = 0; i < num_dispatcher + num_worker; i++){
+    pthread_join(threadIDs[i], NULL);
+  }
 
   /* SHOULD NOT HIT THIS CODE UNLESS RECEIVED SIGINT AND THREADS CLOSED */
   /********************* DO NOT REMOVE SECTION - TOP     *********************/
