@@ -14,10 +14,13 @@ FILE *logfile;                                                  //Global file po
 /* ************************ Global Hints **********************************/
 
 //int ????      = 0;                                                //[Extra Credit B]  --> If using cache, how will you track which cache entry to evict from array?
-//int ????      = 0;                                                //[worker()]        --> How will you track which index in the request queue to remove next?
+//int nextReadIndex = 0;                                                //[worker()]        --> How will you track which index in the request queue to remove next?
 int nextInsertIndex = 0;                                               //[dispatcher()]    --> How will you know where to insert the next request received into the request queue?
 int currRequestLen = 0;                                                //[multiple funct]  --> How will you update and utilize the current number of requests in the request queue?
-
+//Regarding index, we will only use one index.
+//The index will represent the next index to insert to.
+//The index to read from will be this index minus one.
+//So it will act like a LAST-IN-FIRST-OUT Data Structure.
 
 pthread_t workerThreads[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for workers?
 pthread_t dispatcherThreads[MAX_THREADS];                                       //[multiple funct]  --> How will you track the p_thread's that you create for dispatchers?
@@ -25,11 +28,14 @@ int threadIDs[MAX_THREADS];                                             //[multi
 //pthread_t ???;                                                    //[Extra Credit A]  --> If you create a thread pool worker thread, you need to track it globally
 
 
-pthread_mutex_t lock_1   = PTHREAD_MUTEX_INITIALIZER;                //What kind of locks will you need to make everything thread safe?                                    [Hint you need multiple]
-pthread_cond_t cond_1    = PTHREAD_COND_INITIALIZER;                 //What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
+pthread_mutex_t lock_1   = PTHREAD_MUTEX_INITIALIZER; //FOR QUEUE                
+pthread_mutex_t lock_2   = PTHREAD_MUTEX_INITIALIZER; //FOR LOG		//What kind of locks will you need to make everything thread safe?                                    [Hint you need multiple]
+pthread_cond_t cond_full    = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_empty    = PTHREAD_COND_INITIALIZER;                 //What kind of conditionals will you need to signal different events (i.e. queue full, queue empty)   [Hint you need multiple]
 
 
-//request_t ???[MAX_QUEUE_LEN];                                     //How will you track the requests globally between threads? How will you ensure this is thread safe?
+request_t queue[MAX_QUEUE_LEN]; //treated like a stack (last in first out)                //How will you track the requests globally between threads? How will you ensure this is thread safe? 
+int requestsServed = 0;							//keeps track of the # of requests served so far (for logging)
 
 
 //cache_entry_t* ?????;                                             //[Extra Credit B]  --> How will you read from, add to, etc. the cache? Likely want thisto be global
@@ -164,9 +170,28 @@ char* getContentType(char *mybuf) {
   *                      (See Section 5 in Project description for more details)
   *    Hint:             Need to check the end of the string passed in to check for .html, .jpg, .gif, etc.
   */
-
+  char extension5[5];//check html
+  char extension4[4];//check htm, jpg, gif
+  memcpy( extension5, &mybuf[sizeof(mybuf)-5], 5); //get last 5 char
+  extension5[4] = '\0';
+  memcpy( extension4, &mybuf[sizeof(mybuf)-4], 4); //get last 4 char
+  extension4[3] = '\0';
+  char* contType;
+  if (strcmp(extension5, ".html" || strcmp(extension4, ".htm"){
+  	contType = "text/html";
+  	return contType;
+  } else if (strcmp(extension4, ".jpg")){
+  	contType = "image/jpeg";
+  	return contType;
+  } else if (strcmp(extension4, ".gif")){
+  	contType = "image/gif";
+  	return contType;
+  } else {
+  	contType = "text/plain";
+  	return contType;
+  }
   //TODO remove this line and return the actual content type
-  return NULL;
+//  return NULL;
 }
 
 // Function to open and read the file from the disk into the memory
@@ -227,7 +252,7 @@ void * dispatch(void *arg) {
     request_t *requestQueue = malloc(sizeof(request_t));
     requestQueue->fd = accept_connection();
     printf("test\n");
-    get_request(requestQueue->fd, buf);
+    int grOut = get_request(requestQueue->fd, buf);
     printf("Dispatcher Received Request: fd[%d] request[%s]\n", requestQueue->fd, buf);
 
     /* TODO (B.III)
@@ -235,12 +260,18 @@ void * dispatch(void *arg) {
     *    Utility Function: int accept_connection(void) //utils.h => Line 24
     *    Hint:             What should happen if accept_connection returns less than 0?
     */
+    if (requestQueue->fd < 0){
+    	//INSERT SOME SORT OF ERROR INTO QUEUE;
+    }
 
     /* TODO (B.IV)
     *    Description:      Get request from the client
     *    Utility Function: int get_request(int fd, char *filename); //utils.h => Line 41
     *    Hint:             What should happen if get_request does not return 0?
     */
+    if (grOut != 0){
+    	//INSERT SOME SORT OF ERROR INTO QUEUE;
+    }
 
     /* TODO (B.V)
     *    Description:      Add the request into the queue
@@ -249,6 +280,13 @@ void * dispatch(void *arg) {
     *                      Probably need some synchronization and some global memory... 
     *                      You cannot add onto a full queue... how should you check this? 
     */
+    pthread_mutex_lock(&lock_1); //lock queue
+    while (nextInsertIndex == MAX_QUEUE_LEN) pthread_cond_wait(cond_full, lock_1); //while the queue is full, do not add into. Wait until it's dequeued.
+    queue[nextInsertIndex++] = requestQueue; //add to queue then increment nextInsertIndex
+    pthread_cond_signal(cond_empty, lock_1); //if queue was empty before, send a signal that there's now an element.
+    pthread_mutex_unlock(&lock_1); //unlock queue
+    
+    
   }
 
   /* TODO (B.VI)
@@ -257,7 +295,7 @@ void * dispatch(void *arg) {
   *                      Call pop for each time you call _push... the 0 flag means do not execute the cleanup handler after popping
   */
 
-  // pthread_cleanup_pop(0);
+  pthread_cleanup_pop(0);
    /********************* DO NOT REMOVE SECTION - TOP     *********************/
    return NULL;
    /********************* DO NOT REMOVE SECTION - BOTTOM  *********************/ 
@@ -309,6 +347,13 @@ void * worker(void *arg) {
     *                      IMPORTANT... if you are processing a request you cannot be cancelled... how do you block being cancelled? (see BlockCancelSignal()--> server.h) 
     *                      IMPORTANT... if you are blocking the cancel signal... when do you re-enable it?
     */
+    pthread_mutex_lock(&lock_1); //lock queue
+    while ((nextInsertIndex - 1) == -1) pthread_cond_wait(cond_empty, lock_1); //while the queue is empty, do not attempt to read. Wait until enqueued to.
+    request_t requestToDo = queue[nextInsertIndex - 1];//read from queue, decrement nextInsertIndex.
+    nextInsertIndex--;
+    pthread_cond_signal(cond_full, lock_1); //if the queue is empty before, signal that there is now an empty space.
+    pthread_mutex_unlock(&lock_1); //unlock queue
+    //DEAL WITH CANCELLING
 
     /* TODO (C.IV)
     *    Description:      Get the data from the disk or the cache (extra credit B)
@@ -323,6 +368,9 @@ void * worker(void *arg) {
     *    Hint:             Call LogPrettyPrint with to_write = NULL which will print to the terminal
     *                      You will need to lock and unlock the logfile to write to it in a thread safe manor
     */
+    pthread_mutex_lock(&lock_2); //lock log
+    requestsServed++;
+    LogPrettyPrint(logfile, id, requestsServed, requestToDo->fd, requestToDo->request, 
 
     /* TODO (C.VI)
     *    Description:      Get the content type and return the result or error
