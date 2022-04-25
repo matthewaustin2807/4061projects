@@ -21,6 +21,8 @@
 //Global variables
 static int master_fd = -1; // Global var used to store socket
 
+pthread_mutex_t lock_accept; //lock to prevent simulataneous accept connections, since socket system uses a queue.
+
 
 /**********************************************
  * makeargv
@@ -104,23 +106,45 @@ void init(int port) {
    // set up sockets using bind, listen
    // also do setsockopt(SO_REUSEADDR)
    // exit if the port number is already in use
-
    
    //Create socket, store return value in master_fd
-   master_fd = -1;
+   //(selfnote: according to lectures, it's called a "beacon" socket)
+    master_fd = socket(PF_UNIX, SOCK_STREAM, 0); //local unix socket, TCP, ignore protocol arg.
+    if (master_fd < 0){
+    	perror("Socket creation failed.");
+    	exit(1);
+    }
    
    
    //Use setsockopt with SO_REUSEADDR
-   
+   int enable = 1;
+   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,  (char*)&enable, sizeof(int) < 0){ //make reusable so if server crashes, port is reusable.
+   	perror("Can't set socket option");
+   	exit(1);
+   }
    
    //Bind socket
+    //Setting up arguments for beacon's bind:
+    struct sockaddr_in servaddr;
+    servaddr.sin_family = AF_UNIX; //domain is local, unix
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); //some non-specific IP address.
+    servaddr.sin_port = htons(port); //the port argument provided
+    
+    if (bind(master_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0){ //bind the socket to a network address
+    	perror("Could not bind.");
+    	exit(1);
+    }
    
 
    //Listen
+   if (listen(sockfd, BACKLOG) < 0){ //use listen to setup queue for requests from client (worker).
+   	perror("Could not listen.");
+   	exit(1);
+   }
   
    
    //If successful should print
-   printf("UTILS.O: Server Started on Port %d\n",port);
+   printf("UTILS.O: Server Started on Port %d\n", port);
 
 }
 
@@ -137,7 +161,17 @@ int accept_connection(void) {
    /* 
       Should we use locks?    
    */
-  return -1;
+   
+   //using a lock to avoid multiple client connections being accepted simultaneously.
+   pthread_mutex_lock(&lock_accept);
+   struct sockaddr_in client_addr; //struct to hold the client's address returned by accept.
+   socklen_t* addr_size = sizeof(sockaddr_in); //size of client's address
+   if ((client_fd = accept(master_fd, client_addr, addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
+   	perror("failed to accept connection with client/worker");
+   	return -1; //return -1 to tell client to ignore request
+   }
+   
+  return client_fd; //return the fd for the client to communicate to the server with.
 }
 
 /**********************************************
@@ -169,26 +203,41 @@ int get_request(int fd, char *filename) {
 
    //Read first line from fd (The rest does not matter to us)
    //Look at fgets
+   char buffer[2048]; 
    
+   FILE* fp = fdopen(fd, "r"); //turn into a filestream for fgets.
 
+   if(fgets(&buffer, 2048, fp) < 0){//try to get one request
+   	return -1
+   }
 
    //Pass the first line read into makeargv
    //Look at makeargv comments for usage
-   
+   char **result;
+   makeargv(buffer," \n",&result); //result contains array of strings. [0] is command, [1] is path.
 
    //Error checks
-   
+   if(strcmp(result[0], "GET") != 0){//not a GET request.
+   	return -1;
+   } else if (strncmp(result[1], "..", 2){ //path starts with ".."
+   	return -1;
+   } else if (strncmp(result[1], "//", 2){ //path starts with "//" 
+   	return -1;
+   } else if (strlen(result[1]) > 1024){ //path is larger than 1024.
+   	return -1;
+   }
 
    //Passed error checks copy the path into filename
-   
+   strcpy(filename, result[1]);
    
    //Call freemakeargv to free memory
-   
+   freemakeargv(result);
 
    //Return success
+   return 0;
 
    //Remove return -1 once you are done implementing
-   return -1;
+   //return -1;
 
 }
 
