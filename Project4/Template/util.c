@@ -18,6 +18,8 @@
 
 #include "util.h"
 
+#define BACKLOG 5
+
 //Global variables
 static int master_fd = -1; // Global var used to store socket
 
@@ -118,7 +120,7 @@ void init(int port) {
    
    //Use setsockopt with SO_REUSEADDR
    int enable = 1;
-   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,  (char*)&enable, sizeof(int) < 0){ //make reusable so if server crashes, port is reusable.
+   if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR,  (char*)&enable, sizeof(int) < 0)){ //make reusable so if server crashes, port is reusable.
    	perror("Can't set socket option");
    	exit(1);
    }
@@ -137,7 +139,7 @@ void init(int port) {
    
 
    //Listen
-   if (listen(sockfd, BACKLOG) < 0){ //use listen to setup queue for requests from client (worker).
+   if (listen(master_fd, BACKLOG) < 0){ //use listen to setup queue for requests from client (worker).
    	perror("Could not listen.");
    	exit(1);
    }
@@ -145,7 +147,6 @@ void init(int port) {
    
    //If successful should print
    printf("UTILS.O: Server Started on Port %d\n", port);
-
 }
 
 /**********************************************
@@ -165,8 +166,9 @@ int accept_connection(void) {
    //using a lock to avoid multiple client connections being accepted simultaneously.
    pthread_mutex_lock(&lock_accept);
    struct sockaddr_in client_addr; //struct to hold the client's address returned by accept.
-   socklen_t* addr_size = sizeof(sockaddr_in); //size of client's address
-   if ((client_fd = accept(master_fd, client_addr, addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
+   int addr_size = sizeof(client_addr); //size of client's address
+   int client_fd; //client fd to be returned.
+   if ((client_fd = accept(master_fd, (struct sockaddr *) &client_addr, &addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
    	perror("failed to accept connection with client/worker");
    	return -1; //return -1 to tell client to ignore request
    }
@@ -207,8 +209,8 @@ int get_request(int fd, char *filename) {
    
    FILE* fp = fdopen(fd, "r"); //turn into a filestream for fgets.
 
-   if(fgets(&buffer, 2048, fp) < 0){//try to get one request
-   	return -1
+   if(fgets(buffer, 2048, fp) < 0){//try to get one request
+   	return -1;
    }
 
    //Pass the first line read into makeargv
@@ -219,9 +221,9 @@ int get_request(int fd, char *filename) {
    //Error checks
    if(strcmp(result[0], "GET") != 0){//not a GET request.
    	return -1;
-   } else if (strncmp(result[1], "..", 2){ //path starts with ".."
+   } else if (strncmp(result[1], "..", 2)){ //path starts with ".."
    	return -1;
-   } else if (strncmp(result[1], "//", 2){ //path starts with "//" 
+   } else if (strncmp(result[1], "//", 2)){ //path starts with "//" 
    	return -1;
    } else if (strlen(result[1]) > 1024){ //path is larger than 1024.
    	return -1;
@@ -271,7 +273,7 @@ int return_result(int fd, char *content_type, char *buf, int numbytes) {
    */
 
    //Send headers
-
+   
    //Send Result file
 
    //Close connection
