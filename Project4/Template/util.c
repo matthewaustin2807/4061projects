@@ -166,7 +166,7 @@ int accept_connection(void) {
    //using a lock to avoid multiple client connections being accepted simultaneously.
    pthread_mutex_lock(&lock_accept);
    struct sockaddr_in client_addr; //struct to hold the client's address returned by accept.
-   int addr_size = sizeof(client_addr); //size of client's address
+   socklen_t addr_size = sizeof(client_addr); //size of client's address
    int client_fd; //client fd to be returned.
    if ((client_fd = accept(master_fd, (struct sockaddr *) &client_addr, &addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
    	perror("failed to accept connection with client/worker");
