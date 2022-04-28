@@ -120,7 +120,7 @@ void init(int port) {
    
    //Use setsockopt with SO_REUSEADDR
    int enable = 1;
-   if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR,  (char*)&enable, sizeof(int) < 0)){ //make reusable so if server crashes, port is reusable.
+   if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR,  (char*)&enable, sizeof(int)) < 0){ //make reusable so if server crashes, port is reusable.
    	perror("Can't set socket option");
    	exit(1);
    }
@@ -271,17 +271,32 @@ int return_result(int fd, char *content_type, char *buf, int numbytes) {
       It is IMPORTANT that you follow the format as described in the writeup while writing to the socket.
 
    */
-
+   
    //Send headers
+    char return_string[2048] = "HTTP/1.1 200 OK\nContent-Type: ";
+   strcat(return_string, content_type);
+   strcat(return_string, "\nContent-Length: ");
+   char numbytes_string[1024];
+   sprintf(numbytes_string, "%d", numbytes);
+   strcat(return_string, numbytes_string);
+   strcat(return_string, "\nConnection: Close\n\n");
    
    //Send Result file
-
+   strcat(return_string, buf);
+      if (write(fd, return_string, strlen(return_string)) < 0){
+   	perror("return result write error");
+   	return -1;
+   }
+   
    //Close connection
-
+   close(fd);
+   
+   
    //Return success
+   return 0;
 
    //Remove return -1 once you are done implementing
-   return -1;
+//   return -1;
 }
 
 
@@ -304,13 +319,21 @@ int return_error(int fd, char *buf) {
    */
    
    //Send headers
+   char return_string[2048] = "HTTP/1.1 404 Not Found\nContent-Type: text/html\nContent-Length: ";
+   char numbytes_string[1024];
+   sprintf(numbytes_string, "%d", (int) strlen(buf));
+   strcat(return_string, numbytes_string);
+   strcat(return_string, "\nConnection: Close\n\nRequested file not found.");
 
    //Send Result file
-
+   
+   
    //Close connection
-
+   close(fd);
+   
    //Return success
+   return 0;
 
    //Remove return -1 once you are done implementing
-   return -1;
+   //return -1;
 }
