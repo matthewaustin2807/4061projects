@@ -18,7 +18,7 @@
 
 #include "util.h"
 
-#define BACKLOG 5
+#define BACKLOG 20
 
 //Global variables
 static int master_fd = -1; // Global var used to store socket
@@ -170,9 +170,10 @@ int accept_connection(void) {
    int client_fd; //client fd to be returned.
    if ((client_fd = accept(master_fd, (struct sockaddr *) &client_addr, &addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
    	perror("failed to accept connection with client/worker");
+   	pthread_mutex_unlock(&lock_accept);
    	return -1; //return -1 to tell client to ignore request
    }
-   
+   pthread_mutex_unlock(&lock_accept);
   return client_fd; //return the fd for the client to communicate to the server with.
 }
 
