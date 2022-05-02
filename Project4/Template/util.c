@@ -23,8 +23,6 @@
 //Global variables
 static int master_fd = -1; // Global var used to store socket
 
-pthread_mutex_t lock_accept; //lock to prevent simulataneous accept connections, since socket system uses a queue.
-
 
 /**********************************************
  * makeargv
@@ -111,7 +109,7 @@ void init(int port) {
    
    //Create socket, store return value in master_fd
    //(selfnote: according to lectures, it's called a "beacon" socket)
-    master_fd = socket(PF_UNIX, SOCK_STREAM, 0); //local unix socket, TCP, ignore protocol arg.
+    master_fd = socket(AF_INET, SOCK_STREAM, 0); //local unix socket, TCP, ignore protocol arg.
     if (master_fd < 0){
     	perror("Socket creation failed.");
     	exit(1);
@@ -128,7 +126,7 @@ void init(int port) {
    //Bind socket
     //Setting up arguments for beacon's bind:
     struct sockaddr_in servaddr;
-    servaddr.sin_family = AF_UNIX; //domain is local, unix
+    servaddr.sin_family = AF_INET; //domain is local, unix
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY); //some non-specific IP address.
     servaddr.sin_port = htons(port); //the port argument provided
     
@@ -163,17 +161,14 @@ int accept_connection(void) {
       Should we use locks?    
    */
    
-   //using a lock to avoid multiple client connections being accepted simultaneously.
-   pthread_mutex_lock(&lock_accept);
+   //no locks used since accept is thread-safe.
    struct sockaddr_in client_addr; //struct to hold the client's address returned by accept.
    socklen_t addr_size = sizeof(client_addr); //size of client's address
    int client_fd; //client fd to be returned.
    if ((client_fd = accept(master_fd, (struct sockaddr *) &client_addr, &addr_size)) < 0){ //attempts to accept a connection initialized by some client (if any). Error check client addr.
    	perror("failed to accept connection with client/worker");
-   	pthread_mutex_unlock(&lock_accept);
    	return -1; //return -1 to tell client to ignore request
    }
-   pthread_mutex_unlock(&lock_accept);
   return client_fd; //return the fd for the client to communicate to the server with.
 }
 
@@ -213,18 +208,19 @@ int get_request(int fd, char *filename) {
    if(fgets(buffer, 2048, fp) < 0){//try to get one request
    	return -1;
    }
-
+   
+   printf("Got : %s \n",buffer);
    //Pass the first line read into makeargv
    //Look at makeargv comments for usage
    char **result;
    makeargv(buffer," \n",&result); //result contains array of strings. [0] is command, [1] is path.
-
+   
    //Error checks
    if(strcmp(result[0], "GET") != 0){//not a GET request.
    	return -1;
-   } else if (strncmp(result[1], "..", 2)){ //path starts with ".."
+   } else if (strncmp(result[1], "..", 2) == 0){ //path starts with ".."
    	return -1;
-   } else if (strncmp(result[1], "//", 2)){ //path starts with "//" 
+   } else if (strncmp(result[1], "//", 2) == 0){ //path starts with "//" 
    	return -1;
    } else if (strlen(result[1]) > 1024){ //path is larger than 1024.
    	return -1;
@@ -281,13 +277,17 @@ int return_result(int fd, char *content_type, char *buf, int numbytes) {
    sprintf(numbytes_string, "%d", numbytes);
    strcat(return_string, numbytes_string);
    strcat(return_string, "\nConnection: Close\n\n");
-   
-   //Send Result file
-   strcat(return_string, buf);
-      if (write(fd, return_string, strlen(return_string)) < 0){
+   if (write(fd, return_string, strlen(return_string)) < 0){
    	perror("return result write error");
    	return -1;
    }
+   
+   //Send Result file
+   if (write(fd, buf, numbytes) < 0){
+   	perror("return result write error");
+   	return -1;
+   }
+
    
    //Close connection
    close(fd);
@@ -324,11 +324,17 @@ int return_error(int fd, char *buf) {
    char numbytes_string[1024];
    sprintf(numbytes_string, "%d", (int) strlen(buf));
    strcat(return_string, numbytes_string);
-   strcat(return_string, "\nConnection: Close\n\nRequested file not found.");
+   strcat(return_string, "\nConnection: Close\n\n");
+   if (write(fd, return_string, strlen(return_string)) < 0){
+   	perror("return error write error");
+   	return -1;
+   }
 
    //Send Result file
-   
-   
+   if (write(fd, buf, strlen(buf)) < 0){
+   	perror("return error write error");
+   	return -1;
+   }
    //Close connection
    close(fd);
    
